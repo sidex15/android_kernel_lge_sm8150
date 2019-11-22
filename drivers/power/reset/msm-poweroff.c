@@ -428,6 +428,16 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_KEYS_CLEAR);
 			__raw_writel(0x7766550a, restart_reason);
+		} else if (!strncmp(cmd, "charge_reset", 12)) {
+			/*
+			 * Off-mode charging: the "chargerlogo" daemon reboots
+			 * with this command to re-arm the low-power charging
+			 * loop. Tag the reboot so ABL re-enters chargerlogo
+			 * instead of doing a normal boot into Android.
+			 */
+			qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_CHARGE_RESET);
+			__raw_writel(0x77665526, restart_reason);
 #if IS_ENABLED(CONFIG_LGE_DISPLAY_DIMMING_BOOT_SUPPORT)
 		} else if (!strncmp(cmd, "FOTA LCD off", 12)) {
 				qpnp_pon_set_restart_reason(
