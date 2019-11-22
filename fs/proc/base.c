@@ -81,6 +81,7 @@
 #include <linux/poll.h>
 #include <linux/nsproxy.h>
 #include <linux/oom.h>
+#include <linux/oom_score_notifier.h>
 #include <linux/elf.h>
 #include <linux/pid_namespace.h>
 #include <linux/user_namespace.h>
@@ -1005,6 +1006,7 @@ static int __set_oom_adj(struct file *file, int oom_adj, bool legacy)
 {
 	struct mm_struct *mm = NULL;
 	struct task_struct *task;
+	int old_oom_score_adj = 0;
 	int err = 0;
 
 	task = get_proc_task(file_inode(file));
@@ -1069,6 +1071,10 @@ static int __set_oom_adj(struct file *file, int oom_adj, bool legacy)
 	}
 #endif
 
+#ifdef CONFIG_OOM_SCORE_NOTIFIER
+	old_oom_score_adj = task->signal->oom_score_adj;
+#endif
+
 	task->signal->oom_score_adj = oom_adj;
 
 #ifdef CONFIG_HSWAP
@@ -1078,6 +1084,14 @@ static int __set_oom_adj(struct file *file, int oom_adj, bool legacy)
 
 	if (!legacy && has_capability_noaudit(current, CAP_SYS_RESOURCE))
 		task->signal->oom_score_adj_min = (short)oom_adj;
+#ifdef CONFIG_OOM_SCORE_NOTIFIER
+	err = oom_score_notify_update(task, old_oom_score_adj);
+	if (err) {
+		/* rollback and error handle. */
+		task->signal->oom_score_adj = old_oom_score_adj;
+		goto err_unlock;
+	}
+#endif
 	trace_oom_score_adj_update(task);
 
 	if (mm) {
