@@ -2624,8 +2624,7 @@ static int ftm4_probe(struct device *dev)
 
 	boot_mode = touch_check_boot_mode(ts->dev);
 	if (boot_mode == TOUCH_CHARGER_MODE
-			|| boot_mode == TOUCH_LAF_MODE
-			|| boot_mode == TOUCH_RECOVERY_MODE) {
+			|| boot_mode == TOUCH_LAF_MODE) {
 		TOUCH_I("%s is not probe in boot_mode = %d\n", __func__, boot_mode);
 		return 0;
 	}
@@ -3449,6 +3448,7 @@ static int ftm4_suspend(struct device *dev)
 	switch (boot_mode) {
 	case TOUCH_NORMAL_BOOT:
 	case TOUCH_MINIOS_AAT:
+	case TOUCH_RECOVERY_MODE:
 		break;
 	case TOUCH_MINIOS_MFTS_FOLDER:
 	case TOUCH_MINIOS_MFTS_FLAT:
@@ -3463,7 +3463,6 @@ static int ftm4_suspend(struct device *dev)
 		}
 	case TOUCH_CHARGER_MODE:
 	case TOUCH_LAF_MODE:
-	case TOUCH_RECOVERY_MODE:
 		TOUCH_I("%s: Etc boot_mode(%d)!!!\n", __func__, boot_mode);
 		return -EPERM;
 	default:
@@ -3507,6 +3506,7 @@ static int ftm4_resume(struct device *dev)
 	switch (boot_mode) {
 	case TOUCH_NORMAL_BOOT:
 	case TOUCH_MINIOS_AAT:
+	case TOUCH_RECOVERY_MODE:
 		break;
 	case TOUCH_MINIOS_MFTS_FOLDER:
 	case TOUCH_MINIOS_MFTS_FLAT:
@@ -3520,7 +3520,6 @@ static int ftm4_resume(struct device *dev)
 		}
 	case TOUCH_CHARGER_MODE:
 	case TOUCH_LAF_MODE:
-	case TOUCH_RECOVERY_MODE:
 		TOUCH_I("%s: Etc boot_mode(%d)!!!\n", __func__, boot_mode);
 		return -EPERM;
 	default:
