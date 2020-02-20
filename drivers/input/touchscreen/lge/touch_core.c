@@ -792,8 +792,7 @@ static int touch_notify(struct touch_core_data *ts,
 
 	boot_mode = touch_check_boot_mode(ts->dev);
 	if (boot_mode == TOUCH_CHARGER_MODE
-			|| boot_mode == TOUCH_LAF_MODE
-			|| boot_mode == TOUCH_RECOVERY_MODE) {
+			|| boot_mode == TOUCH_LAF_MODE) {
 		TOUCH_I("%s: boot_mode = %d\n", __func__, boot_mode);
 		return 0;
 	}
@@ -866,8 +865,7 @@ static int display_notify(struct touch_core_data *ts,
 
 	boot_mode = touch_check_boot_mode(ts->dev);
 	if (boot_mode == TOUCH_CHARGER_MODE
-			|| boot_mode == TOUCH_LAF_MODE
-			|| boot_mode == TOUCH_RECOVERY_MODE) {
+			|| boot_mode == TOUCH_LAF_MODE) {
 		TOUCH_I("%s: boot_mode = %d\n", __func__, boot_mode);
 		return 0;
 	}
@@ -1325,8 +1323,7 @@ static int touch_core_probe(struct platform_device *pdev)
 
 	boot_mode = touch_check_boot_mode(ts->dev);
 	if (boot_mode == TOUCH_CHARGER_MODE
-			|| boot_mode == TOUCH_LAF_MODE
-			|| boot_mode == TOUCH_RECOVERY_MODE) {
+			|| boot_mode == TOUCH_LAF_MODE) {
 		TOUCH_I("%s: boot_mode = %d\n", __func__, boot_mode);
 		return touch_core_probe_etc(pdev);
 	}
