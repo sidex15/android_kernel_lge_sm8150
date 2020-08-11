@@ -215,9 +215,12 @@ irqreturn_t touch_irq_thread(int irq, void *dev_id)
 
 	TOUCH_TRACE();
 
+    pm_qos_update_request(&ts->pm_qos_req, 100);
 #if defined(CONFIG_SECURE_TOUCH)
-	if (secure_touch_filter_interrupt(ts) == IRQ_HANDLED)
+	if (secure_touch_filter_interrupt(ts) == IRQ_HANDLED) {
+	    pm_qos_update_request(&ts->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 		return IRQ_HANDLED;
+    }
 #endif
 	if (ts->role.use_synaptics_touchcomm)
 		mutex_lock(&ts->irq_lock);
@@ -310,6 +313,8 @@ irqreturn_t touch_irq_thread(int irq, void *dev_id)
 		mutex_unlock(&ts->irq_lock);
 	else
 		mutex_unlock(&ts->lock);
+	
+	pm_qos_update_request(&ts->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 
 	return IRQ_HANDLED;
 }
@@ -1236,6 +1241,11 @@ static int touch_core_probe_normal(struct platform_device *pdev)
 		goto error_init_input;
 	}
 
+	ts->pm_qos_req.type = PM_QOS_REQ_AFFINE_IRQ;
+	ts->pm_qos_req.irq = ts->irq;
+    pm_qos_add_request(&ts->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+			   PM_QOS_DEFAULT_VALUE);
+
 	ret = touch_request_irq(ts->irq, touch_irq_handler,
 			touch_irq_thread, ts->irqflags | IRQF_ONESHOT,
 			LGE_TOUCH_NAME, ts);
@@ -1261,6 +1271,7 @@ static int touch_core_probe_normal(struct platform_device *pdev)
 
 error_request_irq:
 	free_irq(ts->irq, ts);
+	pm_qos_remove_request(&ts->pm_qos_req);
 error_init_input:
 	if (ts->input) {
 		input_mt_destroy_slots(ts->input);
