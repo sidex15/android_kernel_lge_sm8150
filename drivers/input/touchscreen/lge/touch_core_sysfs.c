@@ -721,6 +721,10 @@ static ssize_t store_swipe_enable(struct device *dev,
 		TOUCH_E("Not supported Swipe (%d)\n", enable_swipe[0]);
 		return count;
 	}
+	if(!ts->swipe[enable_swipe[0]].available) {
+		TOUCH_E("Swipe (%d) not supported by touchscreen\n", enable_swipe[0]);
+		return count;
+	}
 
 	switch(enable_swipe[0]) {
 		case SWIPE_D:
