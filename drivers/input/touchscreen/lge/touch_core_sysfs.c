@@ -635,6 +635,42 @@ static ssize_t store_debug_option_state(struct device *dev,
 	return count;
 }
 
+static ssize_t show_swipe_available(struct device *dev, char *buf)
+{
+	struct touch_core_data *ts = to_touch_core(dev);
+	int ret = 0;
+
+	TOUCH_TRACE();
+
+	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
+			SWIPE_D, ts->swipe[SWIPE_D].available);
+	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
+			SWIPE_U, ts->swipe[SWIPE_U].available);
+	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
+			SWIPE_L, ts->swipe[SWIPE_L].available);
+	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
+			SWIPE_R, ts->swipe[SWIPE_R].available);
+	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
+			SWIPE_L2, ts->swipe[SWIPE_L2].available);
+	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
+			SWIPE_R2, ts->swipe[SWIPE_R2].available);
+
+	TOUCH_I("%s: ts->swipe[SWIPE_D].available = %d\n", __func__,
+			ts->swipe[SWIPE_D].available);
+	TOUCH_I("%s: ts->swipe[SWIPE_U].available = %d\n", __func__,
+			ts->swipe[SWIPE_U].available);
+	TOUCH_I("%s: ts->swipe[SWIPE_L].available = %d\n", __func__,
+			ts->swipe[SWIPE_L].available);
+	TOUCH_I("%s: ts->swipe[SWIPE_R].available = %d\n", __func__,
+			ts->swipe[SWIPE_R].available);
+	TOUCH_I("%s: ts->swipe[SWIPE_L2].available = %d\n", __func__,
+			ts->swipe[SWIPE_L2].available);
+	TOUCH_I("%s: ts->swipe[SWIPE_R2].available = %d\n", __func__,
+			ts->swipe[SWIPE_R2].available);
+
+	return ret;
+}
+
 static ssize_t show_swipe_enable(struct device *dev, char *buf)
 {
 	struct touch_core_data *ts = to_touch_core(dev);
@@ -1396,6 +1432,7 @@ static TOUCH_ATTR(sp_link_touch_off,
 static TOUCH_ATTR(debug_tool, show_debug_tool_state, store_debug_tool_state);
 static TOUCH_ATTR(debug_option, show_debug_option_state,
 				store_debug_option_state);
+static TOUCH_ATTR(swipe_available, show_swipe_available, NULL);
 static TOUCH_ATTR(swipe_enable, show_swipe_enable, store_swipe_enable);
 static TOUCH_ATTR(swipe_pay_area, NULL, store_swipe_pay_area);
 static TOUCH_ATTR(swipe_tool, show_swipe_tool, store_swipe_tool);
@@ -1432,6 +1469,7 @@ static struct attribute *touch_attribute_list[] = {
 	&touch_attr_sp_link_touch_off.attr,
 	&touch_attr_debug_tool.attr,
 	&touch_attr_debug_option.attr,
+	&touch_attr_swipe_available.attr,
 	&touch_attr_swipe_enable.attr,
 	&touch_attr_swipe_pay_area.attr,
 	&touch_attr_swipe_tool.attr,
