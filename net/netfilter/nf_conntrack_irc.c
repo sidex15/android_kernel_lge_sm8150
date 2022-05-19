@@ -278,38 +278,47 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 	data = ib_ptr;
 	data_limit = ib_ptr + skb->len - dataoff;
 
-	/* Skip any whitespace */
-	while (data < data_limit - 10) {
-		if (*data == ' ' || *data == '\r' || *data == '\n')
-			data++;
-		else
-			break;
-	}
-
-	/* strlen("PRIVMSG x ")=10 */
-	if (data < data_limit - 10) {
-		if (strncasecmp("PRIVMSG ", data, 8))
-			goto out;
-		data += 8;
-	}
-
-	/* strlen(" :\1DCC SENT t AAAAAAAA P\1\n")=26
-	 * 7+MINMATCHLEN+strlen("t AAAAAAAA P\1\n")=26
+	/* If packet is coming from IRC server
+	 * parse the packet for different type of
+	 * messages (MOTD,NICK etc) and process
+	 * accordingly
 	 */
-	while (data < data_limit - (21 + MINMATCHLEN)) {
-		/* Find first " :", the start of message */
-		if (memcmp(data, " :", 2)) {
-			data++;
-			continue;
+	if (dir == IP_CT_DIR_REPLY) {
+		/* strlen("NICK xxxxxx")
+		 * 5+strlen("xxxxxx")=1 (minimum length of nickname)
+		 */
+		while (data < data_limit - 10) {
+			if (*data == ' ' || *data == '\r' || *data == '\n')
+				data++;
+			else
+				break;
 		}
-		data += 2;
 
-		/* then check that place only for the DCC command */
-		if (memcmp(data, "\1DCC ", 5))
-			goto out;
-		data += 5;
-		/* we have at least (21+MINMATCHLEN)-(2+5) bytes valid data left */
+		/* strlen("PRIVMSG x ")=10 */
+		if (data < data_limit - 10) {
+			if (strncasecmp("PRIVMSG ", data, 8))
+				goto out;
+			data += 8;
+		}
 
+		/* strlen(" :\1DCC SENT t AAAAAAAA P\1\n")=26
+		* 7+MINMATCHLEN+strlen("t AAAAAAAA P\1\n")=26
+		*/
+		while (data < data_limit - (21 + MINMATCHLEN)) {
+			/* Find first " :", the start of message */
+			if (memcmp(data, " :", 2)) {
+				data++;
+				continue;
+			}
+			data += 2;
+
+			/* then check that place only for the DCC command */
+			if (memcmp(data, "\1DCC ", 5))
+				goto out;
+			data += 5;
+			/* we have at least (21+MINMATCHLEN)-(2+5) bytes valid data left */
+		}
+		////////////////////////
 		while (data < data_limit - 6) {
 			if (memcmp(data, " MOTD ", 6)) {
 				data++;
