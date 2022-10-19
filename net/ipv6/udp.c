@@ -1510,8 +1510,6 @@ void udpv6_destroy_sock(struct sock *sk)
 		if (up->encap_enabled)
 			static_key_slow_dec(&udpv6_encap_needed);
 	}
-
-	inet6_destroy_sock(sk);
 }
 
 /*
