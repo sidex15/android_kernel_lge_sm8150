@@ -488,31 +488,6 @@ void __init __weak thread_stack_cache_init(void)
 }
 #endif
 
-void __init __weak mem_encrypt_init(void) { }
-
-/* Report memory auto-initialization states for this boot. */
-static void __init report_meminit(void)
-{
-	const char *stack;
-
-	if (IS_ENABLED(CONFIG_INIT_STACK_ALL))
-		stack = "all";
-	else if (IS_ENABLED(CONFIG_GCC_PLUGIN_STRUCTLEAK_BYREF_ALL))
-		stack = "byref_all";
-	else if (IS_ENABLED(CONFIG_GCC_PLUGIN_STRUCTLEAK_BYREF))
-		stack = "byref";
-	else if (IS_ENABLED(CONFIG_GCC_PLUGIN_STRUCTLEAK_USER))
-		stack = "__user";
-	else
-		stack = "off";
-
-	pr_info("mem auto-init: stack:%s, heap alloc:%s, heap free:%s\n",
-		stack, want_init_on_alloc(GFP_KERNEL) ? "on" : "off",
-		want_init_on_free() ? "on" : "off");
-	if (want_init_on_free())
-		pr_info("mem auto-init: clearing system memory may take some time...\n");
-}
-
 /*
  * Set up kernel memory allocators
  */
@@ -674,14 +649,6 @@ asmlinkage __visible void __init start_kernel(void)
 	 * too:
 	 */
 	locking_selftest();
-
-	/*
-	 * This needs to be called before any devices perform DMA
-	 * operations that might use the SWIOTLB bounce buffers. It will
-	 * mark the bounce buffers as decrypted so that their usage will
-	 * not cause "plain-text" data to be decrypted when accessed.
-	 */
-	mem_encrypt_init();
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (initrd_start && !initrd_below_start_ok &&
