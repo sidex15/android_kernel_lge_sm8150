@@ -1758,9 +1758,6 @@ static void s3706_init_swipe_info(struct device *dev)
 
 	TOUCH_TRACE();
 
-	ts->swipe[SWIPE_D].available = false;
-
-	ts->swipe[SWIPE_U].available = true;
 	ts->swipe[SWIPE_U].enable = false;
 	ts->swipe[SWIPE_U].debug_enable = false;
 	ts->swipe[SWIPE_U].distance = 20;
@@ -1775,7 +1772,7 @@ static void s3706_init_swipe_info(struct device *dev)
 	ts->swipe[SWIPE_U].area.x2 = 1019;
 	ts->swipe[SWIPE_U].area.y2 = 2247;
 	ts->swipe[SWIPE_U].start_area.x1 = 339;
-	ts->swipe[SWIPE_U].start_area.y1 = 1126;
+	ts->swipe[SWIPE_U].start_area.y1 = 2000;
 	ts->swipe[SWIPE_U].start_area.x2 = 740;
 	ts->swipe[SWIPE_U].start_area.y2 = 2247;
 	ts->swipe[SWIPE_U].border_area.x1 = 0;
@@ -1787,61 +1784,58 @@ static void s3706_init_swipe_info(struct device *dev)
 	ts->swipe[SWIPE_U].start_border_area.x2 = 0;
 	ts->swipe[SWIPE_U].start_border_area.y2 = 0;
 
-	ts->swipe[SWIPE_L].available = true;
 	ts->swipe[SWIPE_L].enable = false;
 	ts->swipe[SWIPE_L].debug_enable = false;
-	ts->swipe[SWIPE_L].distance = 12;
-	ts->swipe[SWIPE_L].ratio_thres = 150;
-	ts->swipe[SWIPE_L].min_time = 4;
+	ts->swipe[SWIPE_L].distance = 7;
+	ts->swipe[SWIPE_L].ratio_thres = 100;
+	ts->swipe[SWIPE_L].min_time = 0;
 	ts->swipe[SWIPE_L].max_time = 150;
-	ts->swipe[SWIPE_L].wrong_dir_thres = 5;
-	ts->swipe[SWIPE_L].init_ratio_chk_dist = 4;
+	ts->swipe[SWIPE_L].wrong_dir_thres = 2;
+	ts->swipe[SWIPE_L].init_ratio_chk_dist = 2;
 	ts->swipe[SWIPE_L].init_ratio_thres = 100;
 	ts->swipe[SWIPE_L].area.x1 = 0;
 	ts->swipe[SWIPE_L].area.y1 = 0;
 	ts->swipe[SWIPE_L].area.x2 = 1079;
-	ts->swipe[SWIPE_L].area.y2 = 1124;
-	ts->swipe[SWIPE_L].start_area.x1 = 890;
+	ts->swipe[SWIPE_L].area.y2 = 200;
+	ts->swipe[SWIPE_L].start_area.x1 = 0;
 	ts->swipe[SWIPE_L].start_area.y1 = 0;
 	ts->swipe[SWIPE_L].start_area.x2 = 1079;
-	ts->swipe[SWIPE_L].start_area.y2 = 1124;
-	ts->swipe[SWIPE_L].border_area.x1 = 0;
-	ts->swipe[SWIPE_L].border_area.y1 = 0;
-	ts->swipe[SWIPE_L].border_area.x2 = 0;
-	ts->swipe[SWIPE_L].border_area.y2 = 0;
-	ts->swipe[SWIPE_L].start_border_area.x1 = 0;
-	ts->swipe[SWIPE_L].start_border_area.y1 = 0;
-	ts->swipe[SWIPE_L].start_border_area.x2 = 0;
-	ts->swipe[SWIPE_L].start_border_area.y2 = 0;
+	ts->swipe[SWIPE_L].start_area.y2 = 200;
+	ts->swipe[SWIPE_L].border_area.x1 = 150;
+	ts->swipe[SWIPE_L].border_area.y1 = 75;
+	ts->swipe[SWIPE_L].border_area.x2 = 150;
+	ts->swipe[SWIPE_L].border_area.y2 = 300;
+	ts->swipe[SWIPE_L].start_border_area.x1 = 75;
+	ts->swipe[SWIPE_L].start_border_area.y1 = 75;
+	ts->swipe[SWIPE_L].start_border_area.x2 = 75;
+	ts->swipe[SWIPE_L].start_border_area.y2 = 150;
 
-	ts->swipe[SWIPE_R].available = true;
 	ts->swipe[SWIPE_R].enable = false;
 	ts->swipe[SWIPE_R].debug_enable = false;
-	ts->swipe[SWIPE_R].distance = 12;
-	ts->swipe[SWIPE_R].ratio_thres = 150;
-	ts->swipe[SWIPE_R].min_time = 4;
+	ts->swipe[SWIPE_R].distance = 7;
+	ts->swipe[SWIPE_R].ratio_thres = 100;
+	ts->swipe[SWIPE_R].min_time = 0;
 	ts->swipe[SWIPE_R].max_time = 150;
-	ts->swipe[SWIPE_R].wrong_dir_thres = 5;
-	ts->swipe[SWIPE_R].init_ratio_chk_dist = 4;
+	ts->swipe[SWIPE_R].wrong_dir_thres = 2;
+	ts->swipe[SWIPE_R].init_ratio_chk_dist = 2;
 	ts->swipe[SWIPE_R].init_ratio_thres = 100;
 	ts->swipe[SWIPE_R].area.x1 = 0;
 	ts->swipe[SWIPE_R].area.y1 = 0;
 	ts->swipe[SWIPE_R].area.x2 = 1079;
-	ts->swipe[SWIPE_R].area.y2 = 1124;
+	ts->swipe[SWIPE_R].area.y2 = 200;
 	ts->swipe[SWIPE_R].start_area.x1 = 0;
 	ts->swipe[SWIPE_R].start_area.y1 = 0;
-	ts->swipe[SWIPE_R].start_area.x2 = 189;
-	ts->swipe[SWIPE_R].start_area.y2 = 1124;
-	ts->swipe[SWIPE_R].border_area.x1 = 0;
-	ts->swipe[SWIPE_R].border_area.y1 = 0;
-	ts->swipe[SWIPE_R].border_area.x2 = 0;
-	ts->swipe[SWIPE_R].border_area.y2 = 0;
-	ts->swipe[SWIPE_R].start_border_area.x1 = 0;
-	ts->swipe[SWIPE_R].start_border_area.y1 = 0;
-	ts->swipe[SWIPE_R].start_border_area.x2 = 0;
-	ts->swipe[SWIPE_R].start_border_area.y2 = 0;
+	ts->swipe[SWIPE_R].start_area.x2 = 1079;
+	ts->swipe[SWIPE_R].start_area.y2 = 200;
+	ts->swipe[SWIPE_R].border_area.x1 = 150;
+	ts->swipe[SWIPE_R].border_area.y1 = 75;
+	ts->swipe[SWIPE_R].border_area.x2 = 150;
+	ts->swipe[SWIPE_R].border_area.y2 = 300;
+	ts->swipe[SWIPE_R].start_border_area.x1 = 75;
+	ts->swipe[SWIPE_R].start_border_area.y1 = 75;
+	ts->swipe[SWIPE_R].start_border_area.x2 = 75;
+	ts->swipe[SWIPE_R].start_border_area.y2 = 150;
 
-	ts->swipe[SWIPE_L2].available = true;
 	ts->swipe[SWIPE_L2].enable = false;
 	ts->swipe[SWIPE_L2].debug_enable = false;
 	ts->swipe[SWIPE_L2].distance = 12;
@@ -1868,7 +1862,6 @@ static void s3706_init_swipe_info(struct device *dev)
 	ts->swipe[SWIPE_L2].start_border_area.x2 = 0;
 	ts->swipe[SWIPE_L2].start_border_area.y2 = 0;
 
-	ts->swipe[SWIPE_R2].available = true;
 	ts->swipe[SWIPE_R2].enable = false;
 	ts->swipe[SWIPE_R2].debug_enable = false;
 	ts->swipe[SWIPE_R2].distance = 12;
@@ -1879,13 +1872,13 @@ static void s3706_init_swipe_info(struct device *dev)
 	ts->swipe[SWIPE_R2].init_ratio_chk_dist = 4;
 	ts->swipe[SWIPE_R2].init_ratio_thres = 100;
 	ts->swipe[SWIPE_R2].area.x1 = 0;
-	ts->swipe[SWIPE_R2].area.y1 = 1126;
+	ts->swipe[SWIPE_R2].area.y1 = 0;
 	ts->swipe[SWIPE_R2].area.x2 = 1079;
 	ts->swipe[SWIPE_R2].area.y2 = 2247;
 	ts->swipe[SWIPE_R2].start_area.x1 = 0;
-	ts->swipe[SWIPE_R2].start_area.y1 = 1126;
+	ts->swipe[SWIPE_R2].start_area.y1 = 306;
 	ts->swipe[SWIPE_R2].start_area.x2 = 189;
-	ts->swipe[SWIPE_R2].start_area.y2 = 2247;
+	ts->swipe[SWIPE_R2].start_area.y2 = 1655;
 	ts->swipe[SWIPE_R2].border_area.x1 = 0;
 	ts->swipe[SWIPE_R2].border_area.y1 = 0;
 	ts->swipe[SWIPE_R2].border_area.x2 = 0;
@@ -2075,6 +2068,13 @@ static int s3706_noise_log(struct device *dev)
 	d->noise.freq_scan_im_sum += freq_scan_im;
 
 	d->noise.cnt++;
+
+	if (d->noise.noise_log == NOISE_ENABLE) {
+		if (ts->old_mask != ts->new_mask) {
+			TOUCH_I("Curr : CNS[%5d] IM[%5d] CID_IM[%5d] FREQ_SCAN_IM[%5d]\n",
+					cns, im, cid_im, freq_scan_im);
+		}
+	}
 
 	if (ts->new_mask == 0 || (d->noise.im_sum >= ULONG_MAX
 				|| d->noise.cns_sum >= ULONG_MAX
@@ -2940,7 +2940,6 @@ static int s3706_suspend(struct device *dev)
 	switch (boot_mode) {
 	case TOUCH_NORMAL_BOOT:
 	case TOUCH_MINIOS_AAT:
-	case TOUCH_RECOVERY_MODE:
 		break;
 	case TOUCH_MINIOS_MFTS_FOLDER:
 	case TOUCH_MINIOS_MFTS_FLAT:
@@ -2954,6 +2953,7 @@ static int s3706_suspend(struct device *dev)
 		break;
 	case TOUCH_CHARGER_MODE:
 	case TOUCH_LAF_MODE:
+	case TOUCH_RECOVERY_MODE:
 		TOUCH_I("%s: Etc boot_mode(%d)!!!\n", __func__, boot_mode);
 		return -EPERM;
 	default:
@@ -3016,7 +3016,6 @@ static int s3706_resume(struct device *dev)
 	switch (boot_mode) {
 	case TOUCH_NORMAL_BOOT:
 	case TOUCH_MINIOS_AAT:
-	case TOUCH_RECOVERY_MODE:
 		break;
 	case TOUCH_MINIOS_MFTS_FOLDER:
 	case TOUCH_MINIOS_MFTS_FLAT:
@@ -3034,6 +3033,7 @@ static int s3706_resume(struct device *dev)
 		break;
 	case TOUCH_CHARGER_MODE:
 	case TOUCH_LAF_MODE:
+	case TOUCH_RECOVERY_MODE:
 		TOUCH_I("%s: Etc boot_mode(%d)!!!\n", __func__, boot_mode);
 		touch_interrupt_control(dev, INTERRUPT_DISABLE);
 		s3706_power(dev, POWER_OFF);

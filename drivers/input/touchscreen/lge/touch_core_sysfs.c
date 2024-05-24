@@ -34,7 +34,6 @@
 static char ime_str[3][8] = {"OFF", "ON", "SWYPE"};
 static char incoming_call_str[7][15] = {"IDLE", "RINGING", "OFFHOOK", "CDMA_RINGING", "CDMA_OFFHOOK", "LTE_RINGING", "LTE_OFFHOOK"};
 static char mfts_str[4][8] = {"NONE", "FOLDER", "FLAT", "CURVED"};
-int lpwg_status = 0;
 
 int ignore_compared_event = 0;
 
@@ -172,11 +171,6 @@ static ssize_t store_lpwg_data(struct device *dev,
 	return count;
 }
 
-static ssize_t show_lpwg_notify(struct device *dev, char *buf)
-{
-	return sprintf(buf, "%d\n", lpwg_status);
-}
-
 static ssize_t store_lpwg_notify(struct device *dev,
 		const char *buf, size_t count)
 {
@@ -195,7 +189,6 @@ static ssize_t store_lpwg_notify(struct device *dev,
 	switch (boot_mode) {
 	case TOUCH_NORMAL_BOOT:
 	case TOUCH_MINIOS_AAT:
-	case TOUCH_RECOVERY_MODE:
 		break;
 	case TOUCH_MINIOS_MFTS_FOLDER:
 	case TOUCH_MINIOS_MFTS_FLAT:
@@ -206,6 +199,7 @@ static ssize_t store_lpwg_notify(struct device *dev,
 			break;
 	case TOUCH_CHARGER_MODE:
 	case TOUCH_LAF_MODE:
+	case TOUCH_RECOVERY_MODE:
 		return count;
 	default:
 		TOUCH_E("invalid boot_mode(%d)\n", boot_mode);
@@ -229,7 +223,6 @@ static ssize_t store_lpwg_notify(struct device *dev,
 	if (ts->driver->lpwg) {
 		mutex_lock(&ts->lock);
 		ts->driver->lpwg(ts->dev, code, param);
-		lpwg_status = (param[0]) ? 1 : 0;
 		mutex_unlock(&ts->lock);
 
 		if (plist != NULL) {
@@ -245,29 +238,6 @@ static ssize_t store_lpwg_notify(struct device *dev,
 			}
 		}
 	}
-
-	return count;
-}
-
-int tap2wake_status = 0;
-
-static ssize_t show_tap2wake(struct device *dev, char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", tap2wake_status);
-}
-
-static ssize_t store_tap2wake(struct device *dev,
-		const char *buf, size_t count)
-{
-	int status = 0;
-	sscanf(buf, "%d", &status);
-
-    if(status < 0 || status > 1) {
-        TOUCH_E("invalid tap2wake status(%d)\n", status);
-        return 0;
-    }
-
-    tap2wake_status = status;
 
 	return count;
 }
@@ -665,42 +635,6 @@ static ssize_t store_debug_option_state(struct device *dev,
 	return count;
 }
 
-static ssize_t show_swipe_available(struct device *dev, char *buf)
-{
-	struct touch_core_data *ts = to_touch_core(dev);
-	int ret = 0;
-
-	TOUCH_TRACE();
-
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_D, ts->swipe[SWIPE_D].available);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_U, ts->swipe[SWIPE_U].available);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_R, ts->swipe[SWIPE_R].available);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_L, ts->swipe[SWIPE_L].available);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_R2, ts->swipe[SWIPE_R2].available);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_L2, ts->swipe[SWIPE_L2].available);
-
-	TOUCH_I("%s: ts->swipe[SWIPE_D].available = %d\n", __func__,
-			ts->swipe[SWIPE_D].available);
-	TOUCH_I("%s: ts->swipe[SWIPE_U].available = %d\n", __func__,
-			ts->swipe[SWIPE_U].available);
-	TOUCH_I("%s: ts->swipe[SWIPE_R].available = %d\n", __func__,
-			ts->swipe[SWIPE_R].available);
-	TOUCH_I("%s: ts->swipe[SWIPE_L].available = %d\n", __func__,
-			ts->swipe[SWIPE_L].available);
-	TOUCH_I("%s: ts->swipe[SWIPE_R2].available = %d\n", __func__,
-			ts->swipe[SWIPE_R2].available);
-	TOUCH_I("%s: ts->swipe[SWIPE_L2].available = %d\n", __func__,
-			ts->swipe[SWIPE_L2].available);
-
-	return ret;
-}
-
 static ssize_t show_swipe_enable(struct device *dev, char *buf)
 {
 	struct touch_core_data *ts = to_touch_core(dev);
@@ -709,30 +643,18 @@ static ssize_t show_swipe_enable(struct device *dev, char *buf)
 	TOUCH_TRACE();
 
 	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_D, ts->swipe[SWIPE_D].enable);
+			PAY_TYPE_SWIPE_U, ts->swipe[SWIPE_U].enable);
 	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_U, ts->swipe[SWIPE_U].enable);
+			PAY_TYPE_SWIPE_L, ts->swipe[SWIPE_L2].enable);
 	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_R, ts->swipe[SWIPE_R].enable);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_L, ts->swipe[SWIPE_L].enable);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_R2, ts->swipe[SWIPE_R2].enable);
-	ret += snprintf(buf + ret, PAGE_SIZE, "%d %d\n",
-			SWIPE_L2, ts->swipe[SWIPE_L2].enable);
+			PAY_TYPE_SWIPE_R, ts->swipe[SWIPE_R2].enable);
 
-	TOUCH_I("%s: ts->swipe[SWIPE_D].enable = %d\n", __func__,
-			ts->swipe[SWIPE_D].enable);
 	TOUCH_I("%s: ts->swipe[SWIPE_U].enable = %d\n", __func__,
 			ts->swipe[SWIPE_U].enable);
-	TOUCH_I("%s: ts->swipe[SWIPE_R].enable = %d\n", __func__,
-			ts->swipe[SWIPE_R].enable);
-	TOUCH_I("%s: ts->swipe[SWIPE_L].enable = %d\n", __func__,
-			ts->swipe[SWIPE_L].enable);
-	TOUCH_I("%s: ts->swipe[SWIPE_R2].enable = %d\n", __func__,
-			ts->swipe[SWIPE_R2].enable);
 	TOUCH_I("%s: ts->swipe[SWIPE_L2].enable = %d\n", __func__,
 			ts->swipe[SWIPE_L2].enable);
+	TOUCH_I("%s: ts->swipe[SWIPE_R2].enable = %d\n", __func__,
+			ts->swipe[SWIPE_R2].enable);
 
 	return ret;
 }
@@ -741,44 +663,40 @@ static ssize_t store_swipe_enable(struct device *dev,
 		const char *buf, size_t count)
 {
 	struct touch_core_data *ts = to_touch_core(dev);
-	int enable_swipe[2] = {-1, 0}; // { SWIPE_DIRECTION, 0 = disabled/1 = enabled }
+	int type = PAY_TYPE_DISABLE;
 
-	if (sscanf(buf, "%d %d", &enable_swipe[0], &enable_swipe[1]) <= 0) {
-		TOUCH_E("Failed to set enable_swipe\n");
+	TOUCH_TRACE();
+
+	if (kstrtos32(buf, 10, &type) < 0)
+		return count;
+
+	TOUCH_I("%s: type = %d\n", __func__, type);
+
+	switch (type) {
+	case PAY_TYPE_DISABLE:
+		ts->swipe[SWIPE_U].enable = false;
+		ts->swipe[SWIPE_L2].enable = false;
+		ts->swipe[SWIPE_R2].enable = false;
+		break;
+	case PAY_TYPE_SWIPE_U:
+		ts->swipe[SWIPE_U].enable = true;
+		ts->swipe[SWIPE_L2].enable = false;
+		ts->swipe[SWIPE_R2].enable = false;
+		break;
+	case PAY_TYPE_SWIPE_L:
+		ts->swipe[SWIPE_U].enable = false;
+		ts->swipe[SWIPE_L2].enable = true;
+		ts->swipe[SWIPE_R2].enable = false;
+		break;
+	case PAY_TYPE_SWIPE_R:
+		ts->swipe[SWIPE_U].enable = false;
+		ts->swipe[SWIPE_L2].enable = false;
+		ts->swipe[SWIPE_R2].enable = true;
+		break;
+	default:
+		TOUCH_E("%s : invalid type(%d)\n", __func__, type);
 		return count;
 	}
-	if(enable_swipe[0] < SWIPE_D || enable_swipe[0] > SWIPE_L2) {
-		TOUCH_E("Not supported Swipe (%d)\n", enable_swipe[0]);
-		return count;
-	}
-	if(!ts->swipe[enable_swipe[0]].available) {
-		TOUCH_E("Swipe (%d) not supported by touchscreen\n", enable_swipe[0]);
-		return count;
-	}
-
-	switch(enable_swipe[0]) {
-		case SWIPE_D:
-			ts->swipe[SWIPE_D].enable = enable_swipe[1] ? true : false;
-			break;
-		case SWIPE_U:
-			ts->swipe[SWIPE_U].enable = enable_swipe[1] ? true : false;
-			break;
-		case SWIPE_L:
-			ts->swipe[SWIPE_L].enable = enable_swipe[1] ? true : false;
-			break;
-		case SWIPE_R:
-			ts->swipe[SWIPE_R].enable = enable_swipe[1] ? true : false;
-			break;
-		case SWIPE_L2:
-			ts->swipe[SWIPE_L2].enable = enable_swipe[1] ? true : false;
-			break;
-		case SWIPE_R2:
-			ts->swipe[SWIPE_R2].enable = enable_swipe[1] ? true : false;
-			break;
-		default: break;
-	}
-
-	TOUCH_I("%s: Set swipe %d to %d\n", __func__, enable_swipe[0], enable_swipe[1]);
 
 	return count;
 }
@@ -1449,8 +1367,7 @@ static ssize_t show_md_test_from_md(struct device *dev,
 static TOUCH_ATTR(platform_data, show_platform_data, NULL);
 static TOUCH_ATTR(fw_upgrade, show_upgrade, store_upgrade);
 static TOUCH_ATTR(lpwg_data, show_lpwg_data, store_lpwg_data);
-static TOUCH_ATTR(lpwg_notify, show_lpwg_notify, store_lpwg_notify);
-static TOUCH_ATTR(tap2wake, show_tap2wake, store_tap2wake);
+static TOUCH_ATTR(lpwg_notify, NULL, store_lpwg_notify);
 static TOUCH_ATTR(keyguard,
 	show_lockscreen_state, store_lockscreen_state);
 static TOUCH_ATTR(ime_status, show_ime_state, store_ime_state);
@@ -1467,7 +1384,6 @@ static TOUCH_ATTR(sp_link_touch_off,
 static TOUCH_ATTR(debug_tool, show_debug_tool_state, store_debug_tool_state);
 static TOUCH_ATTR(debug_option, show_debug_option_state,
 				store_debug_option_state);
-static TOUCH_ATTR(swipe_available, show_swipe_available, NULL);
 static TOUCH_ATTR(swipe_enable, show_swipe_enable, store_swipe_enable);
 static TOUCH_ATTR(swipe_pay_area, NULL, store_swipe_pay_area);
 static TOUCH_ATTR(swipe_tool, show_swipe_tool, store_swipe_tool);
@@ -1492,7 +1408,6 @@ static struct attribute *touch_attribute_list[] = {
 	&touch_attr_fw_upgrade.attr,
 	&touch_attr_lpwg_data.attr,
 	&touch_attr_lpwg_notify.attr,
-	&touch_attr_tap2wake.attr,
 	&touch_attr_keyguard.attr,
 	&touch_attr_ime_status.attr,
 	&touch_attr_film_status.attr,
@@ -1505,7 +1420,6 @@ static struct attribute *touch_attribute_list[] = {
 	&touch_attr_sp_link_touch_off.attr,
 	&touch_attr_debug_tool.attr,
 	&touch_attr_debug_option.attr,
-	&touch_attr_swipe_available.attr,
 	&touch_attr_swipe_enable.attr,
 	&touch_attr_swipe_pay_area.attr,
 	&touch_attr_swipe_tool.attr,

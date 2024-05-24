@@ -41,7 +41,6 @@
 #if defined(CONFIG_LGE_TOUCH_USE_PANEL_NOTIFY)
 #include <linux/lge_panel_notify.h>
 #endif
-#include <linux/pm_qos.h>
 
 #if defined(CONFIG_SECURE_TOUCH)
 #include <linux/completion.h>
@@ -330,8 +329,6 @@ enum {
 	TOUCH_UEVENT_SWIPE_UP,
 	TOUCH_UEVENT_SWIPE_LEFT,
 	TOUCH_UEVENT_SWIPE_RIGHT,
-	TOUCH_UEVENT_SWIPE_LEFT2,
-	TOUCH_UEVENT_SWIPE_RIGHT2,
 	TOUCH_UEVENT_WATER_MODE_ON,
 	TOUCH_UEVENT_WATER_MODE_OFF,
 	TOUCH_UEVENT_AI_BUTTON,
@@ -343,24 +340,13 @@ enum {
 	TOUCH_UEVENT_LPWG_LONGPRESS_UP_AROUND,
 	TOUCH_UEVENT_SIZE,
 };
-
-enum {
-	KEY_GESTURE_SWIPE_DOWN = 247,
-	KEY_GESTURE_SWIPE_UP = 248,
-	KEY_GESTURE_SWIPE_RIGHT = 249,
-	KEY_GESTURE_SWIPE_LEFT = 250,
-	KEY_GESTURE_SWIPE_RIGHT2 = 251,
-	KEY_GESTURE_SWIPE_LEFT2 = 252,
-};
+/* use TOUCH_UEVENT_SIDE_PAY instead of TOUCH_UEVENT_SWIPE_LEFT2/RIGHT2 */
+#define TOUCH_UEVENT_SIDE_PAY (TOUCH_UEVENT_SWIPE_UP)
 
 enum {
 	APP_HOME = 0,
 	APP_CONTACTS,
 	APP_MENU,
-	LPWG_SET_COORDS = 3,
-	LPWG_SET_TAPS = 4,
-	LPWG_ENABLE_TAP_LISTENER = 8,
-	LPWG_MASTER = 9,
 };
 
 struct state_info {
@@ -469,7 +455,6 @@ struct swipe_ctrl {
 	struct swipe_active_area start_area;
 	struct swipe_active_area border_area;
 	struct swipe_active_area start_border_area;
-	bool available;
 };
 
 struct touch_pinctrl {
@@ -629,7 +614,6 @@ struct touch_core_data {
 
 	struct app_info app_data[3];
 	struct perf_test_info perf_test;
-	struct pm_qos_request pm_qos_req;
 };
 
 #define PROPERTY_GPIO(np, string, target)				\
