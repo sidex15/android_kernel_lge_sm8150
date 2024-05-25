@@ -140,7 +140,7 @@ static lge_boot_mode_t lge_boot_mode = LGE_BOOT_MODE_NORMAL;
 int __init lge_boot_mode_init(char *s)
 {
 	if (!strcmp(s, "charger"))
-		lge_boot_mode = LGE_BOOT_MODE_CHARGERLOGO;
+		lge_boot_mode = LGE_BOOT_MODE_CHARGER;
 	else if (!strcmp(s, "chargerlogo"))
 		lge_boot_mode = LGE_BOOT_MODE_CHARGERLOGO;
 	else if (!strcmp(s, "qem_56k"))
