@@ -549,11 +549,7 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 	do {
 		if (!buffer_async_write(bh))
 			continue;
-<<<<<<< HEAD
-		ret = io_submit_add_bh(io, inode, bounce_page ?: page, bh);
-=======
 		ret = io_submit_add_bh(io, inode, page, data_page, bh);
->>>>>>> 74f30fa7c92e (ext4: fix cgroup writeback accounting with fs-layer encryption)
 		if (ret) {
 			/*
 			 * We only get here on ENOMEM.  Not much else
