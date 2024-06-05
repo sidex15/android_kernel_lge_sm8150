@@ -4001,16 +4001,6 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 	/* controller reset is still pending */
 	if (dwc->err_evt_seen)
 		return IRQ_HANDLED;
-	if (pm_runtime_suspended(dwc->dev)) {
-		dwc->pending_events = true;
-		/*
-		 * Trigger runtime resume. The get() function will be balanced
-		 * after processing the pending events in dwc3_process_pending
-		 * events().
-		 */
-		pm_runtime_get(dwc->dev);
-		disable_irq_nosync(dwc->irq_gadget);
-	}
 
 	/*
 	 * With PCIe legacy interrupt, test shows that top-half irq handler can
@@ -4285,8 +4275,6 @@ void dwc3_gadget_process_pending_events(struct dwc3 *dwc)
 {
 	if (dwc->pending_events) {
 		dwc3_interrupt(dwc->irq_gadget, dwc->ev_buf);
-		dwc3_thread_interrupt(dwc->irq_gadget, dwc->ev_buf);
-		pm_runtime_put(dwc->dev);
 		dwc->pending_events = false;
 		enable_irq(dwc->irq_gadget);
 	}
