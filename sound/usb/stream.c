@@ -315,6 +315,7 @@ static struct snd_pcm_chmap_elem *convert_chmap(int channels, unsigned int bits,
 					chmap->map[c++] = *maps;
 				if (c == chmap->channels)
 					break;
+			} 
 		} else {
 			/*
 			 * If we're missing wChannelConfig, then guess something
