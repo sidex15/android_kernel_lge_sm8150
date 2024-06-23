@@ -1888,13 +1888,6 @@ static int s3706_noise_log(struct device *dev)
 
 	d->noise.cnt++;
 
-	if (d->noise.noise_log == NOISE_ENABLE) {
-		if (md->old_mask != md->new_mask) {
-			TOUCH_I("Curr : CNS[%5d] IM[%5d] CID_IM[%5d] FREQ_SCAN_IM[%5d]\n",
-					cns, im, cid_im, freq_scan_im);
-		}
-	}
-
 	if (md->new_mask == 0 || (d->noise.im_sum >= ULONG_MAX
 				|| d->noise.cns_sum >= ULONG_MAX
 				|| d->noise.cid_im_sum >= ULONG_MAX
