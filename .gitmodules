@@ -2,9 +2,9 @@
 	path = susfs4ksu
 	branch = kernel-4.14
 	url = https://gitlab.com/simonpunk/susfs4ksu
-	ignore = dirty
+	ignore = all
 [submodule "KernelSU"]
 	path = KernelSU
-	branch = non-gki-n3x7g3n
-	url = https://github.com/sidex15/KernelSU
+	branch = next
+	url = https://gitlab.com/sidex15/KernelSU-next
 	ignore = all
