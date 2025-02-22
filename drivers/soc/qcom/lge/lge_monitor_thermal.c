@@ -508,6 +508,7 @@ static void _poll_monitor(struct lge_monitor_thermal_data *monitor_dd)
 			break;
 	}
 
+#ifdef CONFIG_SCHED_WALT
 	list_for_each_entry_rcu(cluster, &cluster_head, list) {
 		pr_info("[TM][C] Cluster->id[%d], cur_freq:%u, min_freq:%u, max_freq:%u,"
 				" max_mitigated_freq:%u, capacity:%d\n",
@@ -518,6 +519,7 @@ static void _poll_monitor(struct lge_monitor_thermal_data *monitor_dd)
 				cluster->max_mitigated_freq,
 				cluster->capacity);
 	}
+#endif
 }
 
 static void poll_monitor_work(struct work_struct *work)
