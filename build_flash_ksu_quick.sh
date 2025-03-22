@@ -6,7 +6,7 @@ echo
 mkdir -p out
 export ARCH=arm64
 export SUBARCH=arm64
-export CLANG_PATH=~/toolchains/zyc-clang/bin
+export CLANG_PATH=~/toolchains/Clang-21.0.0/bin
 #export CLANG_PATH=~/toolchains/weebx-clang16/bin
 export PATH=${CLANG_PATH}:${PATH}
 export CROSS_COMPILE=aarch64-linux-gnu-
