@@ -371,10 +371,6 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	unsigned long start, end;
 	dev_t dev = 0;
 	const char *name = NULL;
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-       char *out_name;
-       int ret = 0;
-#endif
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
@@ -395,26 +391,6 @@ bypass_orig_flow:
 	start = vma->vm_start;
 	end = vma->vm_end;
 	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
-
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-       out_name = kmalloc(SUSFS_MAX_LEN_PATHNAME, GFP_KERNEL);
-       if (!out_name)
-	       goto orig_flow;
-       ret = susfs_sus_maps(ino, end - start, &ino, &dev, &flags, &pgoff, vma, out_name);
-
-orig_flow:
-#endif
-
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-       if (ret == 2) {
-	       seq_pad(m, ' ');
-	       seq_puts(m, out_name);
-	       seq_putc(m, '\n');
-	       kfree(out_name);
-	       return;
-       }
-       kfree(out_name);
-#endif
 
 	/*
 	 * Print the dentry name for named mappings, and a

@@ -1834,15 +1834,6 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
 	char *pathname;
 	int len;
 
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-	struct mm_struct *mm;
-	struct vm_area_struct *vma;
-	struct file *vma_file;
-	struct dentry *vma_dentry;
-	struct inode *vma_inode;
-	unsigned long ino;
-#endif
-
 	if (!tmp)
 		return -ENOMEM;
 
@@ -2243,9 +2234,6 @@ struct map_files_info {
 	fmode_t		mode;
 	unsigned int	len;
 	unsigned char	name[4*sizeof(long)+2]; /* max: %lx-%lx\0 */
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-	int susfs_action;
-#endif
 };
 
 /*
@@ -2308,10 +2296,6 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
 	int result;
 	struct mm_struct *mm;
 
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-	int ret = 0;
-#endif
-
 	result = -ENOENT;
 	task = get_proc_task(dir);
 	if (!task)
@@ -2333,23 +2317,6 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
 	vma = find_exact_vma(mm, vm_start, vm_end);
 	if (!vma)
 		goto out_no_vma;
-
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-	if (vma->vm_file) {
-		ret = susfs_sus_map_files_instantiate(vma);
-		if (ret == 1) {
-			if (vma->vm_file->f_mode & FMODE_WRITE) {
-				vma->vm_file->f_mode &= ~FMODE_WRITE;
-			}
-			goto orig_flow;
-		}
-		if (ret == 2) {
-			result = -ENOENT;
-			goto out_no_vma; 
-		}
-	}
-orig_flow:
-#endif
 
 	if (vma->vm_file)
 		result = proc_map_files_instantiate(dir, dentry, task,
@@ -2381,10 +2348,6 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
 	struct map_files_info info;
 	struct map_files_info *p;
 	int ret;
-
-#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-	int susfs_ret = 0;
-#endif
 
 	ret = -ENOENT;
 	task = get_proc_task(file_inode(file));
