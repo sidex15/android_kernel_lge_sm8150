@@ -5405,6 +5405,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
 	int task_new = !(flags & ENQUEUE_WAKEUP);
+	bool prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
 #ifdef CONFIG_SCHED_TUNE
 				(schedtune_prefer_idle(p) > 0) : 0;
 #elif  CONFIG_UCLAMP_TASK
@@ -5947,6 +5948,33 @@ static unsigned long __cpu_norm_util(unsigned long util, unsigned long capacity)
 		return SCHED_CAPACITY_SCALE;
 
 	return (util << SCHED_CAPACITY_SHIFT)/capacity;
+}
+
+/*
+  * Check whether cpu is in the fastest set of cpu's that p should run on.
+  * If p is boosted, prefer that p runs on a faster cpu; otherwise, allow p
+  * to run on any cpu.
+  */
+ static inline bool
+ cpu_is_in_target_set(struct task_struct *p, int cpu)
+ {
+ 	struct root_domain *rd = cpu_rq(cpu)->rd;
+ 	int first_cpu, next_usable_cpu;
+ 
+ #ifdef CONFIG_SCHED_TUNE
+ 	if (schedtune_task_boost(p)) {
+ #elif  CONFIG_UCLAMP_TASK
+ 	if (uclamp_boosted(p)) {
+ #endif
+ 		first_cpu = rd->mid_cap_orig_cpu != -1 ? rd->mid_cap_orig_cpu :
+ 			    rd->max_cap_orig_cpu;
+ 
+ 	} else {
+ 		first_cpu = rd->min_cap_orig_cpu;
+ 	}
+ 
+ 	next_usable_cpu = cpumask_next(first_cpu - 1, &p->cpus_allowed);
+ 	return cpu >= next_usable_cpu || next_usable_cpu >= nr_cpu_ids;
 }
 
 static inline bool
