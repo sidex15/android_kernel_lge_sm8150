@@ -5,6 +5,6 @@
 	ignore = dirty
 [submodule "KernelSU"]
 	path = KernelSU
-	branch = n3x7g3n-kernel
+	branch = next-susfs-experimental
 	url = https://github.com/sidex15/KernelSU-Next
 	ignore = all
