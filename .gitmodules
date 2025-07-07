@@ -7,4 +7,3 @@
 	path = KernelSU
 	branch = next-susfs-experimental
 	url = https://github.com/sidex15/KernelSU-Next
-	ignore = all
