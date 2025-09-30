@@ -33,3 +33,6 @@ fi
 
 # Copy the new build to the release directory
 cp -f ./out/arch/arm64/boot/Image.gz-dtb ./release/Dragon/Image.gz-dtb
+
+# Sign kernel modules
+./out/scripts/sign-file sha512 out/certs/signing_key.pem out/certs/signing_key.x509 out/drivers/input/touchscreen/lge/module/touch_module_s3706.ko ./release/Dragon/touch_module_s3706.ko
