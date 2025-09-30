@@ -25,12 +25,12 @@ make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump ST
 # Copy the current Image.gz-dtb to history with incremented name
 history_dir=./release/Dragon/history-alpha
 mkdir -p $history_dir
-current_file=./release/Dragon/Image-alpha.gz-dtb
+current_file=./release/Dragon/Image-alpha
 if [ -f "$current_file" ]; then
-    n=$(ls $history_dir | grep -oP '^Image-alpha\K\d+(?=\.gz-dtb$)' | sort -nr | head -n1)
+    n=$(ls $history_dir | grep -oP '^Image-alpha\K\d+$' | sort -nr | head -n1)
     n=$((n + 1))
-    cp -f "$current_file" "$history_dir/Image-alpha${n}.gz-dtb"
+    cp -f "$current_file" "$history_dir/Image-alpha${n}"
 fi
 
 # Copy the new build to the release directory
-cp -f ./out/arch/arm64/boot/Image.gz-dtb ./release/Dragon/Image-alpha.gz-dtb
+cp -f ./out/arch/arm64/boot/Image ./release/Dragon/Image-alpha
