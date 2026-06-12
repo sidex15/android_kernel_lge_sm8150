@@ -1208,7 +1208,7 @@ static int wcd9xxx_slim_get_laddr(struct slim_device *sb,
 				  const u8 *e_addr, u8 e_len, u8 *laddr)
 {
 	int ret;
-	const unsigned long timeout = jiffies +
+	unsigned long timeout = jiffies +
 				      msecs_to_jiffies(SLIMBUS_PRESENT_TIMEOUT);
 
 	do {

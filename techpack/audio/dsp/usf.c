@@ -1910,7 +1910,7 @@ static void usf_compat_xx_info_type(struct us_xx_info_type32 *us_xx_info32,
 
 static int usf_set_tx_info32(struct usf_type *usf, unsigned long arg)
 {
-	struct us_tx_info_type32 config_tx32;
+	struct us_tx_info_type32 config_tx32 = {};
 	struct us_tx_info_type config_tx;
 
 	int rc = copy_from_user(&config_tx32,
@@ -1932,7 +1932,7 @@ static int usf_set_tx_info32(struct usf_type *usf, unsigned long arg)
 
 static int usf_set_rx_info32(struct usf_type *usf, unsigned long arg)
 {
-	struct us_rx_info_type32 config_rx32;
+	struct us_rx_info_type32 config_rx32 = {};
 	struct us_rx_info_type config_rx;
 
 	int rc = copy_from_user(&config_rx32,
