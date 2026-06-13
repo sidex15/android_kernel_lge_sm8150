@@ -8,6 +8,7 @@ on:
         required: true
         type: choice
         options:
+          - all
           - alpha
           - beta
           - flash
@@ -31,9 +32,28 @@ on:
         default: '24'
 
 jobs:
+  matrix-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      variants: ${{ steps.set-matrix.outputs.variants }}
+    steps:
+      - name: Set variant matrix
+        id: set-matrix
+        run: |
+          if [ "${{ inputs.variant }}" = "all" ]; then
+            echo 'variants=["alpha","beta","flash","mh2lm"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'variants=["${{ inputs.variant }}"]' >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: matrix-setup
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    strategy:
+      matrix:
+        variant: ${{ fromJson(needs.matrix-setup.outputs.variants) }}
+      fail-fast: false
 
     steps:
       - name: Install dependencies
@@ -81,7 +101,7 @@ jobs:
             ksu_flag="--ksu"
           fi
           bash ./build_kernel_docker_quick.sh \
-            --variant "${{ inputs.variant }}" \
+            --variant "${{ matrix.variant }}" \
             $ksu_flag \
             --jobs "${{ inputs.jobs }}" \
             --build "${{ inputs.build }}" \
@@ -89,7 +109,7 @@ jobs:
 
       - name: Copy built kernel to anykernel/magisk directory
         run: |
-          variant="${{ inputs.variant }}"
+          variant="${{ matrix.variant }}"
           build="${{ inputs.build }}"
 
           case "$variant" in
@@ -112,7 +132,7 @@ jobs:
       - name: Determine artifact paths
         id: artifacts
         run: |
-          variant="${{ inputs.variant }}"
+          variant="${{ matrix.variant }}"
           build="${{ inputs.build }}"
 
           ksu_flag=""
@@ -126,7 +146,7 @@ jobs:
             alpha)  image_name="Image-alpha"; device_codename="G8" ;;
             beta)   image_name="Image-beta"; device_codename="G8s" ;;
             flash)  image_name="Image"; device_codename="V50" ;;
-            mh2lm)  image_name="Image-mh2lm"; device_codename="V50s/G8x" ;;
+            mh2lm)  image_name="Image-mh2lm"; device_codename="V50s-G8x" ;;
           esac
 
           if [ "$build" = "magisk" ]; then
