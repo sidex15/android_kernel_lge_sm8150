@@ -138,10 +138,10 @@ jobs:
           ksu="${{ matrix.ksu }}"
 
           case "$variant" in
-            alpha)  image_name="Image-alpha"; device_codename="G8" ;;
-            beta)   image_name="Image-beta"; device_codename="G8s" ;;
-            flash)  image_name="Image"; device_codename="V50" ;;
-            mh2lm)  image_name="Image-mh2lm"; device_codename="V50s-G8x" ;;
+            alpha)  image_name="Image-alpha"; device_codename="#               LG G8                 #" ;;
+            beta)   image_name="Image-beta"; device_codename="#               LG G8s                #" ;;
+            flash)  image_name="Image"; device_codename="#               LG V50                #" ;;
+            mh2lm)  image_name="Image-mh2lm"; device_codename="#            LG V50s-G8x              #" ;;
           esac
 
           if [ "$build" = "magisk" ]; then
@@ -149,7 +149,7 @@ jobs:
           else
             cp "release/Dragon/${image_name}" "n3x7g3n_anykernel3/Image"
             # replace banner <device> with actual device name
-            sed -i "s/#             LG <device>             #/#             LG ${device_codename}                  #/g" n3x7g3n_anykernel3/banner
+            sed -i "s/#             LG <device>             #/${device_codename}/g" n3x7g3n_anykernel3/banner
             # replace n3x7g3n kernel line if KSU is included
             if [ "$ksu" = "Include" ]; then
               sed -i "s/#           n3x7g3n kernel            #/#    n3x7g3n kernel (KSUN + SUSFS)    #/g" n3x7g3n_anykernel3/banner
