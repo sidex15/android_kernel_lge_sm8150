@@ -29,6 +29,7 @@ on:
         options:
           - anykernel
           - magisk
+          - both
         default: anykernel
       jobs:
         description: 'Parallel jobs'
@@ -41,6 +42,7 @@ jobs:
     outputs:
       variants: ${{ steps.set-matrix.outputs.variants }}
       ksu_check: ${{ steps.set-matrix.outputs.ksu_check }}
+      builds: ${{ steps.set-matrix.outputs.builds }}
     steps:
       - name: Set matrix variables
         id: set-matrix
@@ -50,10 +52,17 @@ jobs:
           else
             echo 'variants=["${{ inputs.variant }}"]' >> "$GITHUB_OUTPUT"
           fi
+
           if [ "${{ inputs.ksu }}" = "Both" ]; then
             echo 'ksu_check=["Include","Exclude"]' >> "$GITHUB_OUTPUT"
           else
             echo 'ksu_check=["${{ inputs.ksu }}"]' >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "${{ inputs.build }}" = "both" ]; then
+            echo 'builds=["anykernel","magisk"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'builds=["${{ inputs.build }}"]' >> "$GITHUB_OUTPUT"
           fi
 
   build:
@@ -64,6 +73,10 @@ jobs:
       matrix:
         variant: ${{ fromJson(needs.matrix-setup.outputs.variants) }}
         ksu: ${{ fromJson(needs.matrix-setup.outputs.ksu_check) }}
+        build: ${{ fromJson(needs.matrix-setup.outputs.builds) }}
+        exclude:
+          - build: magisk
+            ksu: Include
       fail-fast: false
 
     steps:
@@ -103,7 +116,7 @@ jobs:
 
       - name: Git Clone AnyKernel3/Magisk kernel installer
         run: |
-          git clone --depth 1 --branch "${{ inputs.build }}" https://github.com/sidex15/n3x7g3n_anykernel3
+          git clone --depth 1 --branch "${{ matrix.build }}" https://github.com/sidex15/n3x7g3n_anykernel3
 
       - name: Build kernel
         run: |
@@ -115,13 +128,13 @@ jobs:
             --variant "${{ matrix.variant }}" \
             $ksu_flag \
             --jobs "${{ inputs.jobs }}" \
-            --build "${{ inputs.build }}" \
+            --build "${{ matrix.build }}" \
             --clang-path "$HOME/toolchains/neutron-clang/bin"
 
       - name: Copy built kernel to anykernel/magisk directory
         run: |
           variant="${{ matrix.variant }}"
-          build="${{ inputs.build }}"
+          build="${{ matrix.build }}"
 
           case "$variant" in
             alpha)  image_name="Image-alpha" ;;
@@ -144,7 +157,7 @@ jobs:
         id: artifacts
         run: |
           variant="${{ matrix.variant }}"
-          build="${{ inputs.build }}"
+          build="${{ matrix.build }}"
 
           ksu_flag=""
           if [ "${{ matrix.ksu }}" = "Include" ]; then
@@ -180,7 +193,7 @@ jobs:
       - name: Upload anykernel/magisk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ inputs.build }}3-${{ steps.artifacts.outputs.ksu_flag }}"
+          name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ matrix.build }}3-${{ steps.artifacts.outputs.ksu_flag }}"
           path: n3x7g3n_anykernel3/
           if-no-files-found: error
           retention-days: 30
