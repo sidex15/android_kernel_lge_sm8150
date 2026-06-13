@@ -14,10 +14,14 @@ on:
           - flash
           - mh2lm
       ksu:
-        description: 'Enable KernelSU'
+        description: 'KernelSU Next?'
         required: false
-        type: boolean
-        default: false
+        type: choice
+        options:
+          - Include
+          - Exclude
+          - Both
+        default: Exclude
       build:
         description: 'Output format'
         required: false
@@ -36,14 +40,20 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       variants: ${{ steps.set-matrix.outputs.variants }}
+      ksu_check: ${{ steps.set-matrix.outputs.ksu_check }}
     steps:
-      - name: Set variant matrix
+      - name: Set matrix variables
         id: set-matrix
         run: |
           if [ "${{ inputs.variant }}" = "all" ]; then
             echo 'variants=["alpha","beta","flash","mh2lm"]' >> "$GITHUB_OUTPUT"
           else
             echo 'variants=["${{ inputs.variant }}"]' >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ inputs.ksu }}" = "Both" ]; then
+            echo 'ksu_check=["Include","Exclude"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ksu_check=["${{ inputs.ksu }}"]' >> "$GITHUB_OUTPUT"
           fi
 
   build:
@@ -53,6 +63,7 @@ jobs:
     strategy:
       matrix:
         variant: ${{ fromJson(needs.matrix-setup.outputs.variants) }}
+        ksu: ${{ fromJson(needs.matrix-setup.outputs.ksu_check) }}
       fail-fast: false
 
     steps:
@@ -97,7 +108,7 @@ jobs:
       - name: Build kernel
         run: |
           ksu_flag=""
-          if [ "${{ inputs.ksu }}" = "true" ]; then
+          if [ "${{ matrix.ksu }}" = "Include" ]; then
             ksu_flag="--ksu"
           fi
           bash ./build_kernel_docker_quick.sh \
@@ -136,7 +147,7 @@ jobs:
           build="${{ inputs.build }}"
 
           ksu_flag=""
-          if [ "${{ inputs.ksu }}" = "true" ]; then
+          if [ "${{ matrix.ksu }}" = "Include" ]; then
             ksu_flag="KSU"
           else
             ksu_flag="OpenELA"
