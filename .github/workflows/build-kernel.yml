@@ -70,6 +70,10 @@ jobs:
         run: |
           git clone --depth 1 --branch legacy-susfs-v2 https://github.com/sidex15/KernelSU-Next KernelSU
 
+      - name: Git Clone AnyKernel3/Magisk kernel installer
+        run: |
+          git clone --depth 1 --branch "${{ inputs.build }}" https://github.com/sidex15/n3x7g3n_anykernel3
+
       - name: Build kernel
         run: |
           ksu_flag=""
@@ -83,8 +87,7 @@ jobs:
             --build "${{ inputs.build }}" \
             --clang-path "$HOME/toolchains/neutron-clang/bin"
 
-      - name: Determine artifact paths
-        id: artifacts
+      - name: Copy built kernel to anykernel/magisk directory
         run: |
           variant="${{ inputs.variant }}"
           build="${{ inputs.build }}"
@@ -97,6 +100,29 @@ jobs:
           esac
 
           if [ "$build" = "magisk" ]; then
+            cp "release/Dragon/${image_name}.gz-dtb" "n3x7g3n_anykernel3/Image.gz-dtb"
+          else
+            cp "release/Dragon/${image_name}" "n3x7g3n_anykernel3/Image"
+          fi
+
+          if [ "$variant" = "flash" ]; then
+            cp "release/Dragon/touch_module_s3706.ko" "n3x7g3n_anykernel3/touch_module_s3706.ko"
+          fi
+
+      - name: Determine artifact paths
+        id: artifacts
+        run: |
+          variant="${{ inputs.variant }}"
+          build="${{ inputs.build }}"
+
+          case "$variant" in
+            alpha)  image_name="Image-alpha"; device_codename="G8" ;;
+            beta)   image_name="Image-beta"; device_codename="G8s" ;;
+            flash)  image_name="Image"; device_codename="V50" ;;
+            mh2lm)  image_name="Image-mh2lm"; device_codename="V50s/G8x" ;;
+          esac
+
+          if [ "$build" = "magisk" ]; then
             artifact_path="release/Dragon/${image_name}.gz-dtb"
           else
             artifact_path="release/Dragon/${image_name}"
@@ -104,6 +130,7 @@ jobs:
 
           echo "artifact_path=${artifact_path}" >> "$GITHUB_OUTPUT"
           echo "image_name=${image_name}" >> "$GITHUB_OUTPUT"
+          echo "device_codename=${device_codename}" >> "$GITHUB_OUTPUT"
 
           if [ "$variant" = "flash" ]; then
             echo "has_ko=true" >> "$GITHUB_OUTPUT"
@@ -111,19 +138,10 @@ jobs:
             echo "has_ko=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload kernel image
+      - name: Upload anykernel/magisk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-${{ inputs.variant }}${{ inputs.ksu == 'true' && '-ksu' || '' }}-${{ inputs.build }}
-          path: ${{ steps.artifacts.outputs.artifact_path }}
+          name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ inputs.build }}3-${{ inputs.ksu == 'true' && '-ksu' || '' }}"
+          path: n3x7g3n_anykernel3/
           if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload touch module (flash only)
-        if: steps.artifacts.outputs.has_ko == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: touch-module-${{ inputs.variant }}${{ inputs.ksu == 'true' && '-ksu' || '' }}
-          path: release/Dragon/touch_module_s3706.ko
-          if-no-files-found: warn
           retention-days: 30
