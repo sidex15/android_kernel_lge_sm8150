@@ -1,0 +1,129 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Kernel variant'
+        required: true
+        type: choice
+        options:
+          - alpha
+          - beta
+          - flash
+          - mh2lm
+      ksu:
+        description: 'Enable KernelSU'
+        required: false
+        type: boolean
+        default: false
+      build:
+        description: 'Output format'
+        required: false
+        type: choice
+        options:
+          - anykernel
+          - magisk
+        default: anykernel
+      jobs:
+        description: 'Parallel jobs'
+        required: false
+        default: '24'
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            git curl wget \
+            build-essential gcc make \
+            bc bison flex \
+            libssl-dev libelf-dev \
+            libncurses5-dev \
+            python3 \
+            zip unzip \
+            cpio \
+            ccache \
+            binutils-aarch64-linux-gnu \
+            binutils-arm-linux-gnueabihf \
+            lld \
+            rsync \
+            clang
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Download Neutron Clang
+        run: |
+          mkdir -p "$HOME/toolchains/neutron-clang"
+          cd "$HOME/toolchains/neutron-clang"
+          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
+          chmod +x antman
+          ./antman -S
+
+      - name: Git Clone KernelSU Next Fork
+        run: |
+          git clone --depth 1 --branch legacy-susfs-v2 https://github.com/sidex15/KernelSU-Next KernelSU
+
+      - name: Build kernel
+        run: |
+          ksu_flag=""
+          if [ "${{ inputs.ksu }}" = "true" ]; then
+            ksu_flag="--ksu"
+          fi
+          bash ./build_kernel_docker_quick.sh \
+            --variant "${{ inputs.variant }}" \
+            $ksu_flag \
+            --jobs "${{ inputs.jobs }}" \
+            --build "${{ inputs.build }}" \
+            --clang-path "$HOME/toolchains/neutron-clang/bin"
+
+      - name: Determine artifact paths
+        id: artifacts
+        run: |
+          variant="${{ inputs.variant }}"
+          build="${{ inputs.build }}"
+
+          case "$variant" in
+            alpha)  image_name="Image-alpha" ;;
+            beta)   image_name="Image-beta" ;;
+            flash)  image_name="Image" ;;
+            mh2lm)  image_name="Image-mh2lm" ;;
+          esac
+
+          if [ "$build" = "magisk" ]; then
+            artifact_path="release/Dragon/${image_name}.gz-dtb"
+          else
+            artifact_path="release/Dragon/${image_name}"
+          fi
+
+          echo "artifact_path=${artifact_path}" >> "$GITHUB_OUTPUT"
+          echo "image_name=${image_name}" >> "$GITHUB_OUTPUT"
+
+          if [ "$variant" = "flash" ]; then
+            echo "has_ko=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_ko=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload kernel image
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ inputs.variant }}${{ inputs.ksu == 'true' && '-ksu' || '' }}-${{ inputs.build }}
+          path: ${{ steps.artifacts.outputs.artifact_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload touch module (flash only)
+        if: steps.artifacts.outputs.has_ko == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: touch-module-${{ inputs.variant }}${{ inputs.ksu == 'true' && '-ksu' || '' }}
+          path: release/Dragon/touch_module_s3706.ko
+          if-no-files-found: warn
+          retention-days: 30
