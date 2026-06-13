@@ -115,6 +115,13 @@ jobs:
           variant="${{ inputs.variant }}"
           build="${{ inputs.build }}"
 
+          ksu_flag=""
+          if [ "${{ inputs.ksu }}" = "true" ]; then
+            ksu_flag="KSU"
+          else
+            ksu_flag="OpenELA"
+          fi
+
           case "$variant" in
             alpha)  image_name="Image-alpha"; device_codename="G8" ;;
             beta)   image_name="Image-beta"; device_codename="G8s" ;;
@@ -131,6 +138,7 @@ jobs:
           echo "artifact_path=${artifact_path}" >> "$GITHUB_OUTPUT"
           echo "image_name=${image_name}" >> "$GITHUB_OUTPUT"
           echo "device_codename=${device_codename}" >> "$GITHUB_OUTPUT"
+          echo "ksu_flag=${ksu_flag}" >> "$GITHUB_OUTPUT"
 
           if [ "$variant" = "flash" ]; then
             echo "has_ko=true" >> "$GITHUB_OUTPUT"
@@ -141,7 +149,7 @@ jobs:
       - name: Upload anykernel/magisk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ inputs.build }}3-${{ inputs.ksu == 'true' && '-ksu' || '' }}"
+          name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ inputs.build }}3-${{ steps.artifacts.outputs.ksu_flag }}"
           path: n3x7g3n_anykernel3/
           if-no-files-found: error
           retention-days: 30
