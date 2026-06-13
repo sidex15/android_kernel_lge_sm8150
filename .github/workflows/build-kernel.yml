@@ -182,25 +182,22 @@ jobs:
 
           if [ "$build" = "magisk" ]; then
             artifact_path="release/Dragon/${image_name}.gz-dtb"
+            build_suffix="magisk"
           else
             artifact_path="release/Dragon/${image_name}"
+            build_suffix="anykernel3"
           fi
 
           echo "artifact_path=${artifact_path}" >> "$GITHUB_OUTPUT"
           echo "image_name=${image_name}" >> "$GITHUB_OUTPUT"
           echo "device_codename=${device_codename}" >> "$GITHUB_OUTPUT"
           echo "ksu_flag=${ksu_flag}" >> "$GITHUB_OUTPUT"
-
-          if [ "$variant" = "flash" ]; then
-            echo "has_ko=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_ko=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "build_suffix=${build_suffix}" >> "$GITHUB_OUTPUT"
 
       - name: Upload anykernel/magisk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ matrix.build }}3-${{ steps.artifacts.outputs.ksu_flag }}"
+          name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ steps.artifacts.outputs.build_suffix }}-${{ steps.artifacts.outputs.ksu_flag }}"
           path: n3x7g3n_anykernel3/
           if-no-files-found: error
           retention-days: 30
