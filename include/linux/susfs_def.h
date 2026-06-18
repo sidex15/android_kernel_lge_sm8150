@@ -48,7 +48,7 @@
 
 /*
  * mount->mnt.susfs_mnt_id_backup => storing original mount's mnt_id
- * inode->i_mapping->flags => storing flag 'AS_FLAGS_'
+ * inode->i_state => storing flag 'AS_FLAGS_'
  * nd->state => storing flag 'ND_STATE_'
  * nd->flags => storing flag 'ND_FLAGS_'
  * task_struct->thread_info.flags => storing flag 'TIF_'
