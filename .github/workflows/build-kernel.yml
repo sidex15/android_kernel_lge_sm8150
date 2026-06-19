@@ -1,8 +1,13 @@
 name: Build Kernel
+run-name: ${{ inputs.input-run-name }}
 
 on:
   workflow_dispatch:
     inputs:
+      input-run-name:
+        description: 'Run name (for internal use, optional)'
+        required: false
+        default: 'Manual Run'
       variant:
         description: 'Kernel variant'
         required: true
@@ -22,6 +27,14 @@ on:
           - Exclude
           - Both
         default: Exclude
+      ksu-repo:
+        description: 'KernelSU Next repository (if not using default)'
+        required: false
+        default: 'https://github.com/sidex15/KernelSU-Next'
+      ksu-branch:
+        description: 'KernelSU Next branch (if not using default)'
+        required: false
+        default: 'legacy-susfs-v2'
       build:
         description: 'Output format'
         required: false
@@ -112,7 +125,7 @@ jobs:
 
       - name: Git Clone KernelSU Next Fork
         run: |
-          git clone --depth 1 --branch legacy-susfs-v2 https://github.com/sidex15/KernelSU-Next KernelSU
+          git clone --depth 1 --branch ${{ inputs.ksu-branch }} ${{ inputs.ksu-repo }} KernelSU
 
       - name: Git Clone AnyKernel3/Magisk kernel installer
         run: |
