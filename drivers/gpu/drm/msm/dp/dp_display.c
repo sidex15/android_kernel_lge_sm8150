@@ -1021,6 +1021,11 @@ static void dp_display_host_init(struct dp_display_private *dp)
 		reset = true;
 
 	dd_gpio_selection(dp->dd_hpd->hpd_high, flip);
+#elif IS_ENABLED(CONFIG_LGE_DUAL_SCREEN) && IS_ENABLED(CONFIG_LATTICE_ICE40)
+	/* DS2 on flash: route DP AUX/lanes through the on-board iCE40 to
+	 * the Type-C connector with the proper orientation flip.
+	 */
+	dd_gpio_selection(0, flip);
 #endif
 
 	dp->power->init(dp->power, flip);
@@ -1029,6 +1034,8 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 #if defined(CONFIG_LGE_COVER_DISPLAY)
 	dp->aux->set_cfg(dp->aux->drm_aux, dp->dd_hpd->hpd_high?1:0);
+#elif defined(CONFIG_LGE_DUAL_SCREEN) && defined(CONFIG_LATTICE_ICE40)
+	dp->aux->set_cfg(dp->aux->drm_aux, 0);
 #endif
 	enable_irq(dp->irq);
 	dp_display_abort_hdcp(dp, false);
@@ -1060,7 +1067,8 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 	dp->core_initialized = false;
 	dp->aux->state = 0;
 
-#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY) || \
+	(IS_ENABLED(CONFIG_LGE_DUAL_SCREEN) && IS_ENABLED(CONFIG_LATTICE_ICE40))
 	dd_lattice_disable();
 	gpio_set_value(67, 0);
 #endif

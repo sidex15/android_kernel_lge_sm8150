@@ -1830,7 +1830,12 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		}
 #endif
 #if defined(CONFIG_LGE_DUAL_SCREEN)
-		if (!strncmp(bdata->button->desc, "ds2_cover_display_back", 22) &&
+		/* "cover_display_back" is the label used on flash (V50) DT;
+		 * mh2lm uses "ds2_cover_display_back". Handle both so DS2
+		 * works on flash without renaming DS1 hall sensor labels.
+		 */
+		if ((!strncmp(bdata->button->desc, "ds2_cover_display_back", 22) ||
+		     !strncmp(bdata->button->desc, "cover_display_back", 18)) &&
 		    lge_get_dual_display_support()) {
 				if (state) {
 					state = BACKCOVER_CLOSE;

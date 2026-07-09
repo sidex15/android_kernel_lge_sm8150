@@ -42,7 +42,13 @@
 #include <linux/lge_cover_display.h>
 extern bool lge_get_mfts_mode(void);
 
-#if defined(CONFIG_MACH_SM8150_MH2LM) || defined(CONFIG_MACH_SM8150_FLASH)
+/*
+ * On mh2lm the DS2 USB touch/MCU device is routed to the secondary USB
+ * controller through the dd-sw-sel mux. On flash (V50) the Type-C D+/D-
+ * go straight to the primary controller and the DS2 enumerates there via
+ * normal OTG host mode, so leave the mux and 2nd controller alone.
+ */
+#if defined(CONFIG_MACH_SM8150_MH2LM)
 #define USE_2ND_USB
 #endif
 
@@ -68,6 +74,19 @@ module_param(usb_recovery_time_ms, uint, 0644);
 
 static bool hallic_test;
 module_param(hallic_test, bool, 0644);
+
+/*
+ * Bring-up aid for ROMs without the LGE dualscreen HAL (e.g. DS2 on V50):
+ * when set, mark the HAL as ready and assert DP HPD as soon as the DS2
+ * DP alt mode is configured, instead of waiting for sysfs writes from
+ * the vendor.lge.hardware.dualscreen service.
+ */
+#ifdef CONFIG_MACH_SM8150_FLASH
+static bool ds2_auto_hpd = true;
+#else
+static bool ds2_auto_hpd;
+#endif
+module_param(ds2_auto_hpd, bool, 0644);
 
 #define DS2_VID				0x1004
 #define DS2_PID				0x637a
@@ -681,6 +700,9 @@ static int pd_msg_received(const void *emul, enum pd_sop_type sop,
 
 			ds2->is_dp_configured = true;
 
+			if (ds2_auto_hpd)
+				ds2->is_ds2_hal_ready = true;
+
 			if (ds2->is_ds2_usb_connected == DS2_USB_CONNECTED &&
 			    ds2->is_ds2_hal_ready) {
 				dev_err(dev, "%s: currunt luke state = %d\n", __func__, luke_sdev.state);
@@ -694,7 +716,8 @@ static int pd_msg_received(const void *emul, enum pd_sop_type sop,
 				mutex_unlock(&lge_dp->cd_state_lock);
 				hallic_state_notify(ds2, &luke_sdev, 1);
 			}
-			//ds2_dp_hpd(ds2, true);
+			if (ds2_auto_hpd)
+				ds2_dp_hpd(ds2, true);
 			break;
 
 		default:
@@ -1043,8 +1066,10 @@ static void ds2_sm(struct work_struct *w)
 		/* fall-through */
 
 	case STATE_DS2_RECOVERY_POWER_OFF:
+#ifdef USE_2ND_USB
 		// 2nd USB off
 		stop_2nd_usb_host(ds2);
+#endif
 
 #if 0
 		/* blocks until USB host is completely stopped */
@@ -1085,8 +1110,10 @@ static void ds2_sm(struct work_struct *w)
 		break;
 
 	case STATE_DS2_RECOVERY_POWER_ON:
+#ifdef USE_2ND_USB
 		// 2nd USB on
 		start_2nd_usb_host(ds2);
+#endif
 
 #if 0
 		/* blocks until USB host is completely started */
