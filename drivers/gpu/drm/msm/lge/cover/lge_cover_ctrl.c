@@ -136,6 +136,16 @@ int lge_cover_extcon_register(struct platform_device *pdev, struct lge_dp_displa
  * lanes between the Type-C connector (with orientation flip) and the DS1
  * Keyssa path, selected by GPIO 67.
  */
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN) && defined(CONFIG_LATTICE_ICE40)
+/* Debug knob: force the full iCE40 master reg0 byte in the USB_DP path
+ * (-1 = normal flip handling). Applied on every host_init, so it can be
+ * swept at runtime: echo 0xb7 > /sys/module/msm_drm/parameters/ds2_ice40_reg0
+ * then toggle the Dual Screen off/on.
+ */
+static int ds2_ice40_reg0 = -1;
+module_param(ds2_ice40_reg0, int, 0644);
+#endif
+
 #if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY) || IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
 void dd_gpio_selection(int dd_hpd, int flip)
 {
@@ -168,10 +178,18 @@ void dd_gpio_selection(int dd_hpd, int flip)
 		gpio_direction_output(67, 1);
 	} else {
 		pr_info("Set to connect USB_DP, flip:%d\n", flip);
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+		if (ds2_ice40_reg0 >= 0)
+			ice40_master_reg_write(global_ice40, 0x00,
+					       ds2_ice40_reg0 & 0xFF);
+		else
+#endif
 		if (flip)
 			ice40_master_reg_write(global_ice40, 0x00, (data&0xFD) | 0x01);
 		else
 			ice40_master_reg_write(global_ice40, 0x00, data|0x03);
+		ret = ice40_master_reg_read(global_ice40, 0x00, &data);
+		pr_info("ice40 master reg0 now 0x%x\n", data);
 		if (lge_get_dual_display_support()) {
 			pr_info("[DD] set gpio 35 for DS1\n");
 			gpio_set_value(35, 0);

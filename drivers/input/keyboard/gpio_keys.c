@@ -2206,7 +2206,12 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 #ifdef CONFIG_LGE_SUPPORT_HALLIC
 		if (bdata->button->desc != NULL) {
 #if defined(CONFIG_LGE_DUAL_SCREEN)
-			if (!strncmp(bdata->button->desc, "ds2_smart_cover", 15))
+			/* flash DT labels the front cover hall "smart_cover";
+			 * register sdev for it too or hallic_set_state()
+			 * NULL-derefs on the first cover event.
+			 */
+			if (!strncmp(bdata->button->desc, "ds2_smart_cover", 15) ||
+			    !strncmp(bdata->button->desc, "smart_cover", 11))
 #elif defined(CONFIG_LGE_COVER_DISPLAY)
 			if (!strncmp(bdata->button->desc, "smart_cover", 11) &&
 			    lge_get_dual_display_support())

@@ -24,6 +24,7 @@
 
 #if defined (CONFIG_LGE_DUAL_SCREEN)
 #include <linux/lge_ds2.h>
+#include <linux/module.h>
 #endif
 
 struct dp_power_private {
@@ -412,6 +413,15 @@ static bool dp_power_find_gpio(const char *gpio1, const char *gpio2)
 	return !!strnstr(gpio1, gpio2, strlen(gpio1));
 }
 
+#if defined(CONFIG_LGE_DUAL_SCREEN)
+/* Debug knob: force the value driven on the DP aux/usbplug-cc gpios while a
+ * DS2 is connected (-1 = normal inverted-flip handling). Runtime-sweepable:
+ * echo 0 > /sys/module/msm_drm/parameters/ds2_aux_gpio_val
+ */
+static int ds2_aux_gpio_val = -1;
+module_param(ds2_aux_gpio_val, int, 0644);
+#endif
+
 static void dp_power_set_gpio(struct dp_power_private *power, bool flip)
 {
 	int i;
@@ -426,11 +436,13 @@ static void dp_power_set_gpio(struct dp_power_private *power, bool flip)
 		if (is_ds2_connected()) {
 			pr_info("ds2 connected. invert flip\n");
 			config->value = !flip;
+			if (ds2_aux_gpio_val >= 0)
+				config->value = !!ds2_aux_gpio_val;
 		}
 #endif
 
 		if (gpio_is_valid(config->gpio)) {
-			pr_debug("gpio %s, value %d\n", config->gpio_name,
+			pr_info("gpio %s, value %d\n", config->gpio_name,
 				config->value);
 
 			if (dp_power_find_gpio(config->gpio_name, "aux-en") ||

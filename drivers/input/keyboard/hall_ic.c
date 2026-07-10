@@ -48,6 +48,12 @@ void hallic_set_state(struct hallic_dev *hdev, int state)
 	int offset = 0;
 	int length;
 
+	if (!hdev->dev) {
+		pr_err("hall-ic: %s not registered, dropping state %d\n",
+		       hdev->name ? hdev->name : "(null)", state);
+		return;
+	}
+
 	if (hdev->state != state) {
 		hdev->state = state;
 
