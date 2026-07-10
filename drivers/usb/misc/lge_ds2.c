@@ -40,6 +40,9 @@
 #include "../../gpu/drm/msm/lge/dp/lge_dp_def.h"
 #include <soc/qcom/lge/board_lge.h>
 #include <linux/lge_cover_display.h>
+#ifdef CONFIG_LGE_USB_SBU_SWITCH
+#include <linux/usb/lge_sbu_switch.h>
+#endif
 extern bool lge_get_mfts_mode(void);
 
 /*
@@ -201,6 +204,10 @@ struct ds2 {
 
 	struct extcon_dev		*extcon;
 	struct gpio_desc		*dd_sw_sel;
+#ifdef CONFIG_LGE_USB_SBU_SWITCH
+	struct lge_sbu_switch_desc	sbu_desc;
+	struct lge_sbu_switch_instance	*sbu_inst;
+#endif
 #ifdef CONFIG_MACH_SM8150_FLASH_LAO_COM
 	struct gpio_desc		*dd_usbstub_sel;
 #endif
@@ -943,6 +950,11 @@ static void ds2_sm(struct work_struct *w)
 		dev_info(dev, "%s: DS2 disconnect\n", __func__);
 
 		ds2->is_ds2_connected = false;
+#ifdef CONFIG_LGE_USB_SBU_SWITCH
+		if (ds2->sbu_inst)
+			lge_sbu_switch_put(ds2->sbu_inst,
+					   LGE_SBU_SWITCH_FLAG_SBU_AUX);
+#endif
 		val.intval = POWER_SUPPLY_PD_INACTIVE;
                         power_supply_set_property(ds2->usb_psy,
                                                   POWER_SUPPLY_PROP_PD_ACTIVE,
@@ -992,6 +1004,16 @@ static void ds2_sm(struct work_struct *w)
 		}
 
 		ds2->is_ds2_connected = true;
+
+#ifdef CONFIG_LGE_USB_SBU_SWITCH
+		/* Keep the SBU lines routed to DP AUX for the whole DS2
+		 * session; this must not depend on the policy engine's own
+		 * get/put which can be missed on boot-time attach.
+		 */
+		if (ds2->sbu_inst)
+			lge_sbu_switch_get(ds2->sbu_inst,
+					   LGE_SBU_SWITCH_FLAG_SBU_AUX);
+#endif
 
 #ifdef USE_2ND_USB
 		// Secondary USB
@@ -1528,6 +1550,17 @@ static int ds2_probe(struct platform_device *pdev)
 	ret = device_init_wakeup(ds2->dev, true);
 	if (ret < 0)
 		goto err;
+
+#ifdef CONFIG_LGE_USB_SBU_SWITCH
+	ds2->sbu_desc.flags = LGE_SBU_SWITCH_FLAG_SBU_AUX;
+	ds2->sbu_inst = devm_lge_sbu_switch_instance_register(ds2->dev,
+							      &ds2->sbu_desc);
+	if (IS_ERR_OR_NULL(ds2->sbu_inst)) {
+		dev_err(dev, "Couldn't register lge_sbu_switch instance, deferring probe\n");
+		ret = -EPROBE_DEFER;
+		goto err;
+	}
+#endif
 
 	ds2->wq = alloc_ordered_workqueue("ds2_wq", WQ_HIGHPRI);
 	if (!ds2->wq)

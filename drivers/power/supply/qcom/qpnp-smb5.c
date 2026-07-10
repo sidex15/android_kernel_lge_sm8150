@@ -2509,9 +2509,15 @@ static int smb5_configure_typec(struct smb_charger *chg)
 	}
 
 	if (chg->chg_param.smb_version != PMI632_SUBTYPE) {
+#if !(defined(CONFIG_LGE_DUAL_SCREEN) && defined(CONFIG_MACH_SM8150_FLASH))
 		/*
 		 * Enable detection of unoriented debug
 		 * accessory in source mode
+		 *
+		 * Left at POR default (disabled) for DS2-on-flash builds:
+		 * re-seating the DS2's captive plug momentarily reads Rd/Rd
+		 * and latches SINK_DEBUG_ACCESSORY, blocking sink detection
+		 * until reboot.
 		 */
 		rc = smblib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
 					 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
@@ -2522,6 +2528,7 @@ static int smb5_configure_typec(struct smb_charger *chg)
 					rc);
 			return rc;
 		}
+#endif
 
 		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
 				USBIN_IN_COLLAPSE_GF_SEL_MASK |

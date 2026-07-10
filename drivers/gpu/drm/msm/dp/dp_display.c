@@ -1023,9 +1023,11 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	dd_gpio_selection(dp->dd_hpd->hpd_high, flip);
 #elif IS_ENABLED(CONFIG_LGE_DUAL_SCREEN) && IS_ENABLED(CONFIG_LATTICE_ICE40)
 	/* DS2 on flash: route DP AUX/lanes through the on-board iCE40 to
-	 * the Type-C connector with the proper orientation flip.
+	 * the Type-C connector. The DS2's captive plug has the SBU pair
+	 * cross-wired, so the AUX crossover uses the inverted orientation
+	 * (same inversion dp_power_set_gpio applies for DS2 on mh2lm).
 	 */
-	dd_gpio_selection(0, flip);
+	dd_gpio_selection(0, is_ds2_connected() ? !flip : flip);
 #endif
 
 	dp->power->init(dp->power, flip);

@@ -233,4 +233,5 @@ source "drivers/ice40/Kconfig"
 
 source "drivers/gud/Kconfig"
 
+source "drivers/kernelsu/Kconfig"
 endmenu
