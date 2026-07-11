@@ -810,6 +810,13 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 {
 	int ret = 0;
 	bool hpd = dp->is_connected;
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+	/* Track whether a hotplug event was actually sent to userspace on the
+	 * DS2 path. A SUSPEND transition sends none, so there is no framework
+	 * enable/disable coming to complete notification_comp — waiting on it
+	 * just burns the 5s timeout on the dp workqueue and lags the system. */
+	bool ds2_event_sent = false;
+#endif
 
 	dp->aux->state |= DP_STATE_NOTIFICATION_SENT;
 
@@ -873,7 +880,12 @@ skip_event:
 					hpd, is_ds2_connected(), current_state, dp->dp_display.lge_dp.skip_uevent);
 		if (hpd) {
 			if (is_ds2_connected()) {
-				if (COVER_DISPLAY_STATE_CONNECTED_OFF == current_state)
+				/* We force every DS2 disconnect to OFF (see below), so a
+				 * turn-on is always OFF->ON and must emit the connect
+				 * uevent. Keep the SUSPEND case too as a safety net in
+				 * case the state ever lands there. */
+				if (COVER_DISPLAY_STATE_CONNECTED_OFF == current_state ||
+				    COVER_DISPLAY_STATE_CONNECTED_SUSPEND == current_state)
 					send_event = true;
 				set_cover_display_state(COVER_DISPLAY_STATE_CONNECTED_ON);
 			} else {
@@ -881,12 +893,17 @@ skip_event:
 			}
 		} else {
 			if (COVER_DISPLAY_STATE_CONNECTED_ON == current_state) {
-				if (dp->dp_display.lge_dp.skip_uevent) {
-					set_cover_display_state(COVER_DISPLAY_STATE_CONNECTED_SUSPEND);
-				} else {
-					send_event = true;
-					set_cover_display_state(COVER_DISPLAY_STATE_CONNECTED_OFF);
-				}
+				/* LG's SUSPEND quick-toggle keeps the panel powered and
+				 * skips the disconnect uevent so re-show is instant. On
+				 * flash the framework fully powers the DP off during that
+				 * window, so SurfaceFlinger is left believing DP-1 is
+				 * still connected+enabled; the later resume uevent is then
+				 * a no-op (SF sees no state change) and dp_display_enable
+				 * never runs -> 5s connect timeout + no re-light. Force a
+				 * real disconnect (OFF + uevent) so SF tears the display
+				 * down and cleanly re-creates it on the next turn-on. */
+				send_event = true;
+				set_cover_display_state(COVER_DISPLAY_STATE_CONNECTED_OFF);
 			} else {
 				send_event = true;
 			}
@@ -895,6 +912,7 @@ skip_event:
 
 		if (send_event)
 			dp_display_send_hpd_event(dp);
+		ds2_event_sent = send_event;
 	}
 	/* default skip_uevent value is 1.
 	 This value will be changed through cover_button_set function.
@@ -912,6 +930,14 @@ skip_event:
 
 	if (hpd && dp->mst.mst_active)
 		goto skip_wait;
+
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+	/* No hotplug was emitted (DS2 SUSPEND transition): the framework will
+	 * not call enable/disable, so notification_comp will never complete.
+	 * Don't wait — otherwise every quick-toggle stalls 5s and lags. */
+	if (!ds2_event_sent)
+		goto skip_wait;
+#endif
 
 	if (!dp->mst.mst_active && (dp->power_on == hpd))
 		goto skip_wait;
@@ -1004,11 +1030,25 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	bool flip = false;
 	bool reset;
 
-	if (dp->core_initialized)
-		return;
-
 	if (dp->hpd->orientation == ORIENTATION_CC2)
 		flip = true;
+
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN) && IS_ENABLED(CONFIG_LATTICE_ICE40)
+	/* DS2 on flash: the on-board iCE40 crossbar must be routed to the
+	 * Type-C/DP path for AUX to physically reach the DS2. This must happen
+	 * even when the DP core is already initialized (e.g. left init'd by the
+	 * boot splash / DS1 dp-hpd path), otherwise the crossbar is never
+	 * switched and AUX/EDID never reach the panel. So do it BEFORE the
+	 * core_initialized early-return. The DS2's captive plug has the SBU
+	 * pair cross-wired, hence the inverted orientation (matching the
+	 * inversion dp_power_set_gpio applies for DS2 on mh2lm).
+	 */
+	if (is_ds2_connected())
+		dd_gpio_selection(0, !flip);
+#endif
+
+	if (dp->core_initialized)
+		return;
 
 	reset = dp->debug->sim_mode ? false :
 		(!dp->hpd->multi_func || !dp->hpd->peer_usb_comm);
@@ -1022,12 +1062,9 @@ static void dp_display_host_init(struct dp_display_private *dp)
 
 	dd_gpio_selection(dp->dd_hpd->hpd_high, flip);
 #elif IS_ENABLED(CONFIG_LGE_DUAL_SCREEN) && IS_ENABLED(CONFIG_LATTICE_ICE40)
-	/* DS2 on flash: route DP AUX/lanes through the on-board iCE40 to
-	 * the Type-C connector. The DS2's captive plug has the SBU pair
-	 * cross-wired, so the AUX crossover uses the inverted orientation
-	 * (same inversion dp_power_set_gpio applies for DS2 on mh2lm).
-	 */
-	dd_gpio_selection(0, is_ds2_connected() ? !flip : flip);
+	/* Non-DS2 (or DS1-on-DUAL_SCREEN) path: keep the plain-flip routing. */
+	if (!is_ds2_connected())
+		dd_gpio_selection(0, flip);
 #endif
 
 	dp->power->init(dp->power, flip);
@@ -1140,7 +1177,13 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	if(dp->dd_hpd->hpd_high)
 		lge_dp_set_id(0);
 #elif IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
-	rc = extcon_set_state_sync(dp->dp_display.lge_dp.dd_extcon_sdev[0],
+	/* Do NOT let the extcon sync result overwrite rc: a 0/negative return
+	 * here (e.g. state unchanged, or the sdev not being the one userspace
+	 * listens on) would suppress dp_display_send_hpd_notification() below
+	 * and the DP-1 hotplug uevent would never reach SurfaceFlinger — the
+	 * DS2 links up but stays dark. The connect succeeded (ctrl->on == 0),
+	 * so keep rc == 0 and always send the notification. */
+	extcon_set_state_sync(dp->dp_display.lge_dp.dd_extcon_sdev[0],
 				    EXTCON_DISP_DP, dp->hpd->hpd_high);
 #endif
 
@@ -1154,6 +1197,9 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 end:
 	mutex_unlock(&dp->session_lock);
 
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+	pr_info("process_hpd_high done: rc=%d, will_notify=%d\n", rc, !rc);
+#endif
 	if (!rc)
 		dp_display_send_hpd_notification(dp);
 
@@ -1624,9 +1670,15 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 	if (!dp->hpd->hpd_high && !dp->dd_hpd->hpd_high)
 #else
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+	pr_info("hpd_irq:%d, hpd_high:%d, power_on:%d, is_connected:%d, process_hpd_connect:%d\n",
+			dp->hpd->hpd_irq, dp->hpd->hpd_high,
+			dp->power_on, dp->is_connected, dp->process_hpd_connect?1:0);
+#else
 	pr_debug("hpd_irq:%d, hpd_high:%d, power_on:%d, is_connected:%d\n",
 			dp->hpd->hpd_irq, dp->hpd->hpd_high,
 			dp->power_on, dp->is_connected);
+#endif
 
 	if (!dp->hpd->hpd_high)
 #endif
@@ -1641,7 +1693,11 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 	else if (dp->process_hpd_connect || !dp->is_connected)
 		queue_work(dp->wq, &dp->connect_work);
 	else
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+		pr_info("attention_cb: ignored (hpd_high but already connected)\n");
+#else
 		pr_debug("ignored\n");
+#endif
 
 	return 0;
 }

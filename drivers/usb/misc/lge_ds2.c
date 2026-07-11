@@ -359,6 +359,19 @@ bool is_ds2_connected(void)
 }
 EXPORT_SYMBOL(is_ds2_connected);
 
+/* True only once the DS2 HAL has asserted DP hpd (i.e. the userspace
+ * activation is driving the display, not the boot-time DP probe). The DP
+ * driver uses this to avoid bringing the link up in the wrong state during
+ * the early boot-attach window.
+ */
+bool is_ds2_dp_hpd_high(void)
+{
+	struct ds2 *ds2 = __ds2;
+
+	return ds2 ? ds2->is_dp_hpd_high : false;
+}
+EXPORT_SYMBOL(is_ds2_dp_hpd_high);
+
 static int pd_sig_received(const void *emul, enum pd_sig_type sig)
 {
 	struct ds2 *ds2 = (struct ds2 *)emul;
@@ -723,8 +736,15 @@ static int pd_msg_received(const void *emul, enum pd_sop_type sop,
 				mutex_unlock(&lge_dp->cd_state_lock);
 				hallic_state_notify(ds2, &luke_sdev, 1);
 			}
-			if (ds2_auto_hpd)
-				ds2_dp_hpd(ds2, true);
+			/* NOTE: do NOT assert DP hpd here even under ds2_auto_hpd.
+			 * On flash the V50 ROM has no ds2_hal_ready sysfs (so we
+			 * still fake is_ds2_hal_ready above), but it DOES drive hpd
+			 * via the ds2_pd sysfs like the native V50s. Asserting hpd
+			 * now runs the DP connect at boot while the DS2 receiver is
+			 * still asleep -> dead link + the cover-display state gets
+			 * stuck out of CONNECTED_OFF, so the later real ds2_pd write
+			 * can no longer emit the DP-1 hotplug uevent. Let ds2_pd be
+			 * the sole hpd driver (matches the working V50s sequence). */
 			break;
 
 		default:
