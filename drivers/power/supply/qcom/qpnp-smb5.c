@@ -255,6 +255,20 @@ static int __weak_chg_icl_ua = 500000;
 module_param_named(
 	weak_chg_icl_ua, __weak_chg_icl_ua, int, 0600
 );
+
+#if defined(CONFIG_LGE_DUAL_SCREEN) && defined(CONFIG_MACH_SM8150_FLASH)
+/*
+ * The DS2's captive plug reads as an unoriented (Rd/Rd) debug accessory on this
+ * board. To bring it up on (re)attach the PMIC must accept that as a source
+ * attach (EN_UNORIENTED_DEBUG_ACCESS_SRC) so it resolves to SINK_POWERED_CABLE
+ * and the policy engine leaves state UNKNOWN -> SRC_Startup, exactly like the
+ * V50s. Default on; set ds2_en_unoriented_dbg_src=0 to restore the POR default.
+ */
+static int __ds2_en_unoriented_dbg_src = 1;
+module_param_named(
+	ds2_en_unoriented_dbg_src, __ds2_en_unoriented_dbg_src, int, 0600
+);
+#endif
 enum {
 	BAT_THERM = 0,
 	MISC_THERM,
@@ -2509,16 +2523,19 @@ static int smb5_configure_typec(struct smb_charger *chg)
 	}
 
 	if (chg->chg_param.smb_version != PMI632_SUBTYPE) {
-#if !(defined(CONFIG_LGE_DUAL_SCREEN) && defined(CONFIG_MACH_SM8150_FLASH))
 		/*
-		 * Enable detection of unoriented debug
-		 * accessory in source mode
+		 * Enable detection of unoriented debug accessory in source mode.
 		 *
-		 * Left at POR default (disabled) for DS2-on-flash builds:
-		 * re-seating the DS2's captive plug momentarily reads Rd/Rd
-		 * and latches SINK_DEBUG_ACCESSORY, blocking sink detection
-		 * until reboot.
+		 * For DS2-on-flash this is REQUIRED: the DS2's captive plug reads
+		 * as an unoriented Rd/Rd accessory on (re)attach, and only with
+		 * this bit set does the PMIC resolve it to SINK_POWERED_CABLE and
+		 * advance the policy engine to SRC_Startup (matches the V50s).
+		 * Tunable via ds2_en_unoriented_dbg_src (default on).
 		 */
+#if defined(CONFIG_LGE_DUAL_SCREEN) && defined(CONFIG_MACH_SM8150_FLASH)
+		if (__ds2_en_unoriented_dbg_src)
+#endif
+		{
 		rc = smblib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
 					 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
 					 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT);
@@ -2528,7 +2545,7 @@ static int smb5_configure_typec(struct smb_charger *chg)
 					rc);
 			return rc;
 		}
-#endif
+		}
 
 		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
 				USBIN_IN_COLLAPSE_GF_SEL_MASK |

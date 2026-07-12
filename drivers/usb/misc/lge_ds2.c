@@ -66,7 +66,10 @@ module_param(usb_2nd_host_test, bool, 0644);
 static unsigned int ds2_usb_check_time_ms = 3000;
 module_param(ds2_usb_check_time_ms, uint, 0644);
 
-static unsigned int ds2_vconn_recovery_time_ms = 1000;
+/* VCONN off-dwell during a recovery power-cycle. Long enough for the DS2's
+ * MCU to fully cold-reset so it re-enumerates its USB on power-on; 1000ms was
+ * too short on flash (re-attach after a recovery often failed to enumerate). */
+static unsigned int ds2_vconn_recovery_time_ms = 1500;
 module_param(ds2_vconn_recovery_time_ms, uint, 0644);
 
 static unsigned int ds2_vconn_recovery_count = 5;
@@ -90,6 +93,19 @@ static bool ds2_auto_hpd = true;
 static bool ds2_auto_hpd;
 #endif
 module_param(ds2_auto_hpd, bool, 0644);
+
+/*
+ * When a charger is attached to the DS2 (MagSafe-style pass-through), the DS2's
+ * power circuit renegotiates and briefly stops presenting Rd on the phone's CC
+ * line, so the PMIC reports Type-C NONE and ds2_sm would hard-disconnect the
+ * whole accessory (display dies, "attach the dual screen again"). But the DS2 is
+ * still physically attached — the hall (luke) sensor stays asserted. Route such
+ * a NONE through the existing VCONN recovery cycle instead of tearing down, so
+ * the DS2 re-presents Rd once the charger negotiation settles. A genuine removal
+ * drops the hall (hallic_status==0) and still takes the real disconnect path.
+ */
+static bool ds2_hallic_keep_alive = true;
+module_param(ds2_hallic_keep_alive, bool, 0644);
 
 #define DS2_VID				0x1004
 #define DS2_PID				0x637a
@@ -371,6 +387,19 @@ bool is_ds2_dp_hpd_high(void)
 	return ds2 ? ds2->is_dp_hpd_high : false;
 }
 EXPORT_SYMBOL(is_ds2_dp_hpd_high);
+
+/* True while the DS2 hall (luke) reports a Dual Screen physically attached.
+ * This is asserted by the HAL/gpio_keys before the Type-C CC event, so it is
+ * valid during the reattach window when is_ds2_connected() is still false
+ * (the USB device has not enumerated yet). The charger's LPD moisture path
+ * uses this to know that a Rd/Rd (SINK_DEBUG_ACCESSORY) read is the DS2's
+ * captive plug, not liquid, and must not trip moisture protection.
+ */
+bool is_ds2_hallic_connected(void)
+{
+	return hallic_status || hallic_test;
+}
+EXPORT_SYMBOL(is_ds2_hallic_connected);
 
 static int pd_sig_received(const void *emul, enum pd_sig_type sig)
 {
@@ -967,6 +996,34 @@ static void ds2_sm(struct work_struct *w)
 			goto sm_done;
 		}
 
+		/*
+		 * Type-C NONE while the DS2 is still physically attached (hall
+		 * asserted) is a spurious CC drop (charger attach, or a brief CC
+		 * glitch), not a real removal.
+		 */
+		if (ds2_hallic_keep_alive &&
+		    (hallic_status || hallic_test) &&
+		    ds2->is_ds2_recovery <= 0) {
+			/*
+			 * If the DS2's USB is still enumerated, the accessory is
+			 * demonstrably alive - a single CC blip must NOT power-
+			 * cycle a healthy MCU (a re-attach after such a cycle
+			 * often fails to re-enumerate). Just ignore it; a genuine
+			 * USB loss comes through ds2_usb_notify's own recovery.
+			 */
+			if (ds2->is_ds2_usb_connected) {
+				dev_info(dev, "%s: Type-C NONE but DS2 USB still alive; ignoring CC glitch\n",
+					 __func__);
+				goto sm_done;
+			}
+
+			dev_info(dev, "%s: Type-C NONE but hall still attached; recover instead of disconnect\n",
+				 __func__);
+			ds2->is_ds2_recovery = ds2_vconn_recovery_count;
+			ds2_set_state(ds2, STATE_DS2_RECOVERY);
+			goto sm_done;
+		}
+
 		dev_info(dev, "%s: DS2 disconnect\n", __func__);
 
 		ds2->is_ds2_connected = false;
@@ -1381,6 +1438,20 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 			kick_sm(ds2, 0);
 		break;
 
+	/*
+	 * SINK_DEBUG_ACCESSORY (Rd/Rd): on this board the DS2's captive plug is
+	 * often misclassified as an unoriented debug accessory on replug (the
+	 * same DS2 reads as SINK_POWERED_CABLE (Rd/Ra) at boot). When the hall
+	 * confirms a Dual Screen is physically attached, treat Rd/Rd exactly like
+	 * SINK_POWERED_CABLE and start the DS2 - the startup applies VCONN and
+	 * brings up the 2nd-USB enumeration, which does not depend on the CC
+	 * classification. Without this, replug lands in Rd/Rd and the DS2 never
+	 * comes back until reboot.
+	 */
+	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
+		if (!(hallic_status || hallic_test))
+			break;
+		/* fall through: hall-attached Rd/Rd is the DS2 */
 	case POWER_SUPPLY_TYPEC_SINK:
 	case POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE:
 #ifdef USE_2ND_USB
@@ -1398,8 +1469,11 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		if ((hallic_status || hallic_test) &&
 		    !ds2->is_ds2_connected &&
 		    !ds2->is_usb_connected &&
-		    ds2->pd_active == POWER_SUPPLY_PD_INACTIVE)
+		    ds2->pd_active == POWER_SUPPLY_PD_INACTIVE) {
+			if (typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+				dev_info(dev, "hall-attached Rd/Rd: starting DS2 anyway\n");
 			ds2_set_state(ds2, STATE_DS2_STARTUP);
+		}
 		break;
 
 	default:

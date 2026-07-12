@@ -28,6 +28,9 @@
 #ifdef CONFIG_LGE_USB_SBU_SWITCH
 #include <linux/usb/lge_sbu_switch.h>
 #endif
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+#include <linux/lge_ds2.h>
+#endif
 
 struct lge_usb_debugger {
 	struct device		*dev;
@@ -132,6 +135,20 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	switch (typec_mode) {
 	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+		/*
+		 * The DS2 captive plug reads as SINK_DEBUG_ACCESSORY (Rd/Rd) on
+		 * this board, which would make the debugger steal the SBU switch
+		 * for UART - but the DS2 needs that SBU for DP-AUX. When a Dual
+		 * Screen is physically attached (hall asserted, valid before the
+		 * USB device enumerates), this is not a UART debug cable: leave
+		 * the SBU alone so the DS2 can bring up its display.
+		 */
+		if (is_ds2_hallic_connected() || is_ds2_connected()) {
+			dev_info(dbg->dev, "DS2 attached: ignore debug accessory (keep SBU for DP-AUX)\n");
+			break;
+		}
+#endif
 		schedule_work(&dbg->work);
 		break;
 

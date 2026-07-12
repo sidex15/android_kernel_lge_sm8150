@@ -3427,9 +3427,25 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_STARTUP);
 		} else if (pd->current_pr == PR_SRC) {
+			/*
+			 * The DS2 (VPD active) is powered by VCONN (6W); its USB
+			 * MCU won't pull D+ / enumerate without it. VCONN is
+			 * normally enabled only for SINK_POWERED_CABLE (Rd/Ra),
+			 * but on replug the DS2 is misclassified as Rd/Rd
+			 * (SINK_DEBUG_ACCESSORY) - enable VCONN for that too when
+			 * VPD is active, else the host comes up but the DS2 USB
+			 * device never appears.
+			 */
+			{
+			union power_supply_propval pdval = {0,};
+			bool ds2_vpd = !power_supply_get_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_ACTIVE, &pdval) &&
+					pdval.intval == POWER_SUPPLY_PD_VPD_ACTIVE;
 			if (!pd->vconn_enabled &&
-					pd->typec_mode ==
-					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
+					(pd->typec_mode ==
+					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE ||
+					(ds2_vpd && pd->typec_mode ==
+					POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY))) {
 				if (!pd->vconn) {
 					pd->vconn = devm_regulator_get(
 						pd->dev.parent, "vconn");
@@ -3441,8 +3457,11 @@ static void usbpd_sm(struct work_struct *w)
 				ret = regulator_enable(pd->vconn);
 				if (ret)
 					usbpd_err(&pd->dev, "Unable to enable vconn\n");
-				else
+				else {
 					pd->vconn_enabled = true;
+					usbpd_info(&pd->dev, "VCONN enabled for DS2 (Rd/Rd VPD)\n");
+				}
+			}
 			}
 			enable_vbus(pd);
 
@@ -4578,6 +4597,17 @@ skip_moisture_detection:
 			break;
 
 		case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
+			/* DS2 (VPD active) misclassified as Rd/Rd: drive source
+			 * mode instead of idling, so the USB host starts. */
+			if (pd_vpd_active) {
+				if (pd->current_pr == PR_SRC)
+					return 0;
+				usbpd_info(&pd->dev, "Debug Accessory (DS2 VPD, same mode): forcing source\n");
+				pd->current_pr = PR_SRC;
+				pd->current_state = PE_UNKNOWN;
+				kick_sm(pd, 0);
+				return 0;
+			}
 			if (pd->vbus_present) {
 				pd->psy_type = POWER_SUPPLY_TYPE_USB;
 			} else {
@@ -4758,6 +4788,23 @@ skip_moisture_detection:
 
 	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
 #ifdef CONFIG_LGE_USB
+		/*
+		 * The DS2 captive plug is misclassified as an unoriented debug
+		 * accessory (Rd/Rd) on replug (it reads SINK_POWERED_CABLE Rd/Ra
+		 * at boot). When the DS2 driver has activated VPD (pd_vpd_active),
+		 * this is the DS2, not a real debug cable: force source mode like
+		 * the SINK_POWERED_CABLE path so PE_SRC_STARTUP starts the USB host
+		 * and the DS2 enumerates. Without this the phone never sources and
+		 * the DS2 USB never comes up on replug.
+		 */
+		if (pd_vpd_active) {
+			usbpd_info(&pd->dev, "Type-C Debug Accessory (DS2 VPD): forcing source mode\n");
+			if (pd->current_pr == PR_SRC)
+				return 0;
+			pd->current_pr = PR_SRC;
+			break;
+		}
+
 		pd->is_unsupported_typec_mode = true;
 		dual_role_instance_changed(pd->dual_role);
 

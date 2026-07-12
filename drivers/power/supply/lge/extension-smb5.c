@@ -1059,8 +1059,13 @@ static bool psy_usbid_update(struct smb_charger* chg) {
 	/* is_ds2_connected() covers boards without load_sw_on_gpio (flash):
 	 * the USB-ID ADC read grabs the SBU switch (FACTORY_ID outranks AUX)
 	 * and cuts DP AUX mid-transfer while the DS2 is attached.
+	 * is_ds2_hallic_connected() extends this to the reattach/replug window,
+	 * where the hall is asserted but is_ds2_connected() is still false (the
+	 * DS2 USB device has not enumerated yet) - without it the USB-ID read
+	 * steals the SBU during replug and the DS2 never brings AUX up.
 	 */
-	if (wa_connected_dual_display(chg) || is_ds2_connected()) {
+	if (wa_connected_dual_display(chg) || is_ds2_connected() ||
+	    is_ds2_hallic_connected()) {
 		cache_usbid_uvoltage = usbldo_range;
 		cache_usbid_type     = CHARGER_USBID_OPEN;
 		pr_info("USB-ID: Updated to %s with DS\n", adc_usbid_name(cache_usbid_type));

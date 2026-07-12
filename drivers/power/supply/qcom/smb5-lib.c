@@ -27,6 +27,9 @@
 #include "step-chg-jeita.h"
 #include "storm-watch.h"
 #include "schgm-flash.h"
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+#include <linux/lge_ds2.h>
+#endif
 
 #define smblib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
@@ -6173,6 +6176,22 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 	if (chg->lpd_disabled)
 		return false;
 
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+	/*
+	 * The DS2 captive plug reads back as SINK_DEBUG_ACCESSORY (Rd/Rd) with a
+	 * low SBU (its SBU pair carries DP-AUX), which this function would flag
+	 * as moisture and kill the port -> DS2 dies on replug. When a Dual Screen
+	 * is physically attached (hall asserted, valid before the USB device
+	 * enumerates so is_ds2_connected() is still false here) or already up,
+	 * treat the Rd/Rd as the DS2, not liquid, and skip LPD. Mirrors the V50s,
+	 * whose src_lpd returns LPD_MOISTURE_NONE for the same reattach.
+	 */
+	if (is_ds2_hallic_connected() || is_ds2_connected()) {
+		smblib_dbg(chg, PR_MISC, "DS2 attached: skip LPD moisture detect\n");
+		return false;
+	}
+#endif
+
 	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
@@ -7999,6 +8018,18 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 
 	if (chg->lpd_stage != LPD_STAGE_FLOAT)
 		goto out;
+
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+	/* Same DS2 rationale as smblib_src_lpd: a Rd/Rd + low-SBU read from the
+	 * attached Dual Screen is not moisture. Clear the LPD stage and bail so
+	 * the recheck timer stops looping LPD_MOISTURE_DETECTED on the DS2.
+	 */
+	if (is_ds2_hallic_connected() || is_ds2_connected()) {
+		chg->lpd_stage = LPD_STAGE_NONE;
+		smblib_dbg(chg, PR_MISC, "DS2 attached: skip LPD ra_open work\n");
+		goto out;
+	}
+#endif
 
 #if defined(CONFIG_LGE_USB_MOISTURE_DETECTION) \
 		&& defined(CONFIG_LGE_USB_SBU_SWITCH) \
