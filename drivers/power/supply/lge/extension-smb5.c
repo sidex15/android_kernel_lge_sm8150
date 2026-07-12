@@ -11,6 +11,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/freezer.h>
 //#include <linux/qpnp/qpnp-adc.h>
+#include <linux/lge_ds2.h>
 
 #include "veneer-primitives.h"
 
@@ -1055,7 +1056,11 @@ static bool psy_usbid_update(struct smb_charger* chg) {
 	mutex_lock(&psy_usbid_mutex);
 // Update all
 
-	if (wa_connected_dual_display(chg)) {
+	/* is_ds2_connected() covers boards without load_sw_on_gpio (flash):
+	 * the USB-ID ADC read grabs the SBU switch (FACTORY_ID outranks AUX)
+	 * and cuts DP AUX mid-transfer while the DS2 is attached.
+	 */
+	if (wa_connected_dual_display(chg) || is_ds2_connected()) {
 		cache_usbid_uvoltage = usbldo_range;
 		cache_usbid_type     = CHARGER_USBID_OPEN;
 		pr_info("USB-ID: Updated to %s with DS\n", adc_usbid_name(cache_usbid_type));

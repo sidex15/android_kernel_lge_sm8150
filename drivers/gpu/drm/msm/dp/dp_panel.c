@@ -30,6 +30,31 @@
 #undef pr_debug
 #define pr_debug pr_err
 
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+#include <linux/lge_ds2.h>
+#include <linux/module.h>
+/* The DS2 panel (V50s/G8x Dual Screen, LMV515N) is a fixed 1080x2340 panel
+ * behind an Analogix ANX7530 DP-to-DSI bridge. Reading its EDID over the AUX
+ * channel through the on-board iCE40 crossbar is unreliable/orientation-
+ * sensitive on flash, and by the time routing is correct the DP core has
+ * already latched a failsafe mode. Mirror the DS1 approach: skip the AUX EDID
+ * read and hand the DP core a known-good EDID. The block below is the real
+ * EDID dumped from the DS2 (product name "ANX7530 DP"). Clearing this param
+ * falls back to the live AUX EDID read.
+ */
+static bool ds2_hardcoded_edid = true;
+module_param(ds2_hardcoded_edid, bool, 0644);
+u8 ds2_edid[128] = {
+	0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x05, 0xd8, 0x30, 0x75, 0x01, 0x00, 0x00, 0x00,
+	0x01, 0x1b, 0x01, 0x04, 0xa5, 0x06, 0x05, 0x78, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00,
+	0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0xd8, 0x40, 0x38, 0x58, 0x40, 0x24, 0x1c, 0x90, 0x28, 0x08,
+	0x04, 0x04, 0x44, 0x8e, 0x00, 0x00, 0x00, 0x10, 0x8e, 0x65, 0x40, 0x60, 0xb0, 0xa0, 0x10, 0x50,
+	0x30, 0x08, 0x81, 0x00, 0x3c, 0x32, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc,
+	0x00, 0x41, 0x4e, 0x58, 0x37, 0x35, 0x33, 0x30, 0x20, 0x44, 0x50, 0x0a, 0x20, 0x20, 0x00, 0x30};
+#endif
+
 #if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
 extern struct ice40 *global_ice40;
 extern int ice40_mcu_reg_read(struct ice40 *ice40, uint addr, char *data, int len);
@@ -114,6 +139,9 @@ struct dp_panel_private {
 	u8 minor;
 #if defined(CONFIG_LGE_COVER_DISPLAY)
 	bool used_dd_edid;
+#endif
+#if defined(CONFIG_LGE_DUAL_SCREEN)
+	bool used_ds2_edid;
 #endif
 };
 
@@ -1842,10 +1870,39 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
+#if defined(CONFIG_LGE_DUAL_SCREEN)
+	/* default: a real (heap) EDID that deinit is allowed to kfree; only the
+	 * static-array hardcoded path below flips this true. */
+	panel->used_ds2_edid = false;
+#endif
+
 	if (panel->custom_edid) {
 		pr_debug("skip edid read in debug mode\n");
 		goto end;
 	}
+#if IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+	/* Only serve the hardcoded EDID once the DS2 HAL has asserted hpd.
+	 * During the early boot-attach window hpd is not yet high and the
+	 * iCE40 crossbar / orientation may still be wrong; returning an EDID
+	 * there would let the DP core enter link training in a bad state and
+	 * wedge in a retry loop. Failing the read here makes the boot probe
+	 * bail cleanly, so the real HAL activation drives a fresh bring-up.
+	 */
+	if (is_ds2_connected() && ds2_hardcoded_edid) {
+		if (!is_ds2_dp_hpd_high()) {
+			pr_info("DS2 connected but hpd not high yet; defer EDID\n");
+			return -EINVAL;
+		}
+		pr_info("DS2 connected: using hardcoded EDID, skip AUX edid read\n");
+		dp_panel->edid_ctrl->edid = (struct edid *)ds2_edid;
+		/* ds2_edid is a static array, NOT heap: mark it so
+		 * dp_panel_deinit_panel_info skips sde_free_edid()/kfree() on
+		 * disconnect (kfree of a .data symbol panics). Mirrors the
+		 * used_dd_edid guard on the DS1 path. */
+		panel->used_ds2_edid = true;
+		goto end;
+	}
+#endif
 #if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
 	if (is_dd_connected()) {
 		while ((ice40_mcu_reg_read(global_ice40, 0x0C, &display_id, 1) < 0) && (read_dd_edid_count < 10)) {
@@ -2506,6 +2563,16 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 #if defined(CONFIG_LGE_COVER_DISPLAY)
 	if (!(panel->custom_edid || panel->used_dd_edid) && dp_panel->edid_ctrl->edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
+#elif defined(CONFIG_LGE_DUAL_SCREEN)
+	/* used_ds2_edid means edid points at the static ds2_edid array, which
+	 * must never be kfree()d (panics in kfree on a .data symbol). Just drop
+	 * the pointer instead so the next connect re-assigns it. */
+	if (panel->used_ds2_edid) {
+		dp_panel->edid_ctrl->edid = NULL;
+		panel->used_ds2_edid = false;
+	} else if (!panel->custom_edid && dp_panel->edid_ctrl->edid) {
+		sde_free_edid((void **)&dp_panel->edid_ctrl);
+	}
 #else
 	if (!panel->custom_edid && dp_panel->edid_ctrl->edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);

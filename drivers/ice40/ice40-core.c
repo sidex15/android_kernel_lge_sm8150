@@ -50,14 +50,18 @@
 #include <linux/usb/usbpd.h>
 #include <soc/qcom/lge/board_lge.h>
 
-#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY) || IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
 #include <linux/lge_cover_display.h>
 #endif
 
 #define DEBUG_GET_MCU_LOG
 
 extern int lge_get_download_mode(void);
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
 extern void request_cover_recovery(int num);
+#elif IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+extern void request_dualscreen_recovery(void);
+#endif
 bool is_cover_connection_state_connected(void);
 struct ice40 *global_ice40;
 static struct device *hiddenmenu_sysfs_dev;
@@ -171,7 +175,11 @@ static void ice40_mcu_recovery(void)
 {
     if (COVER_DISPLAY_STATE_CONNECTED_POWERDROP != get_cover_display_state() && !global_ice40->in_recovery) {
         global_ice40->in_recovery = 1;
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
         request_cover_recovery(1);
+#elif IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
+        request_dualscreen_recovery();
+#endif
         global_ice40->recovery_count++;
     }
 #ifdef CONFIG_LGE_HANDLE_PANIC

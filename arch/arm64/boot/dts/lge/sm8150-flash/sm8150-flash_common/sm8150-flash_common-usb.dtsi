@@ -148,3 +148,15 @@
 		lge,uart-sbu-sel-gpio = <&tlmm 35 0>;
 	};
 };
+
+/*
+ * LGE USB DS2 driver (2nd gen Dual Screen over Type-C).
+ * On flash the DS2 USB touch/MCU device enumerates on the primary
+ * controller via OTG host mode, so no mux/2nd-controller properties are
+ * needed. The driver only probes on CONFIG_LGE_DUAL_SCREEN builds.
+ */
+&vendor {
+	lge_usb_ds2: lge_usb_ds2 {
+		compatible = "lge,usb_ds2";
+	};
+};

@@ -1785,6 +1785,10 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		lge_gen_key_panic(button->code, state);
 #endif
 #ifdef CONFIG_LGE_SUPPORT_HALLIC
+/* On DS2 builds "smart_cover" (flash gpio121) is the BACK sensor, handled in
+ * the DS2 back block below; skip the legacy front mapping here.
+ */
+#if !defined(CONFIG_LGE_DUAL_SCREEN)
 #ifdef CONFIG_LGE_COVER_DISPLAY
 		if (!strncmp(bdata->button->desc, "smart_cover", 11) &&
 		    lge_get_dual_display_support()){
@@ -1798,13 +1802,22 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 				pr_err("[Display] smart_cover state switched to %s \n", (state ? "CLOSE" : "OPEN"));
 			}
 		}
+#endif
 #if defined(CONFIG_LGE_DUAL_SCREEN)
-		if (!strncmp(bdata->button->desc, "ds2_smart_cover", 15) &&
+		/* flash (V50) and mh2lm (V50s) mount the two cover halls on
+		 * SWAPPED gpios: flash "smart_cover"=gpio121, "cover_display_back"=gpio3;
+		 * mh2lm ds2_smart_cover=gpio3, ds2_cover_display_back=gpio121.
+		 * The DS2 HAL expects mh2lm geometry, so route by PHYSICAL position:
+		 * gpio3 = FRONT. On flash gpio3 is labelled "cover_display_back",
+		 * so the DS2 front state must come from that label here.
+		 */
+		if ((!strncmp(bdata->button->desc, "ds2_smart_cover", 15) ||
+		     !strncmp(bdata->button->desc, "cover_display_back", 18)) &&
 		    lge_get_dual_display_support()) {
 				if (sdev.state_front != state) {
 					sdev.state_front = state;
 					hallic_set_state(&sdev, state);
-					pr_err("[Display] %s state switched to %s \n", "ds2_smart_cover", (state ? "CLOSE" : "OPEN"));
+					pr_err("[Display] DS2 front (%s) state switched to %s \n", bdata->button->desc, (state ? "CLOSE" : "OPEN"));
 			}
 		}
 #endif
@@ -1830,7 +1843,11 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		}
 #endif
 #if defined(CONFIG_LGE_DUAL_SCREEN)
-		if (!strncmp(bdata->button->desc, "ds2_cover_display_back", 22) &&
+		/* DS2 BACK sensor is gpio121: mh2lm labels it "ds2_cover_display_back",
+		 * flash labels gpio121 "smart_cover". Route both to the back state.
+		 */
+		if ((!strncmp(bdata->button->desc, "ds2_cover_display_back", 22) ||
+		     !strncmp(bdata->button->desc, "smart_cover", 11)) &&
 		    lge_get_dual_display_support()) {
 				if (state) {
 					state = BACKCOVER_CLOSE;
@@ -1838,7 +1855,7 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 				if (sdev.state_back != state) {
 					sdev.state_back = state;
 					hallic_set_state(&sdev, state);
-					pr_err("[Display] %s state switched to %s \n", "ds2_cover_display_back", (state ? "CLOSE" : "OPEN"));
+					pr_err("[Display] DS2 back (%s) state switched to %s \n", bdata->button->desc, (state ? "CLOSE" : "OPEN"));
 				}
 			}
 #endif
@@ -2201,7 +2218,12 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 #ifdef CONFIG_LGE_SUPPORT_HALLIC
 		if (bdata->button->desc != NULL) {
 #if defined(CONFIG_LGE_DUAL_SCREEN)
-			if (!strncmp(bdata->button->desc, "ds2_smart_cover", 15))
+			/* flash DT labels the front cover hall "smart_cover";
+			 * register sdev for it too or hallic_set_state()
+			 * NULL-derefs on the first cover event.
+			 */
+			if (!strncmp(bdata->button->desc, "ds2_smart_cover", 15) ||
+			    !strncmp(bdata->button->desc, "smart_cover", 11))
 #elif defined(CONFIG_LGE_COVER_DISPLAY)
 			if (!strncmp(bdata->button->desc, "smart_cover", 11) &&
 			    lge_get_dual_display_support())

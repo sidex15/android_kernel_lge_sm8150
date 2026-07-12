@@ -24,6 +24,7 @@
 
 #if defined (CONFIG_LGE_DUAL_SCREEN)
 #include <linux/lge_ds2.h>
+#include <linux/module.h>
 #endif
 
 struct dp_power_private {
@@ -423,14 +424,16 @@ static void dp_power_set_gpio(struct dp_power_private *power, bool flip)
 			config->value = flip;
 
 #if defined (CONFIG_LGE_DUAL_SCREEN)
+		/* The DS2's captive plug has the SBU pair cross-wired, so the
+		 * aux/usbplug-cc gpios need the inverted orientation. */
 		if (is_ds2_connected()) {
-			pr_info("ds2 connected. invert flip\n");
+			pr_debug("ds2 connected: invert flip\n");
 			config->value = !flip;
 		}
 #endif
 
 		if (gpio_is_valid(config->gpio)) {
-			pr_debug("gpio %s, value %d\n", config->gpio_name,
+			pr_info("gpio %s, value %d\n", config->gpio_name,
 				config->value);
 
 			if (dp_power_find_gpio(config->gpio_name, "aux-en") ||

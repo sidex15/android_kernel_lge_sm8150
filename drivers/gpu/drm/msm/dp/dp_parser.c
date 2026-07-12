@@ -277,7 +277,10 @@ static int dp_parser_gpio(struct dp_parser *parser)
 		"qcom,aux-sel-gpio",
 		"qcom,usbplug-cc-gpio",
 	};
-#ifndef CONFIG_LGE_COVER_DISPLAY
+#if !defined(CONFIG_LGE_COVER_DISPLAY) && !defined(CONFIG_LGE_DUAL_SCREEN)
+	/* On LGE DD/DS devices qcom,dp-hpd-gpio is the DS1 pogo HPD line and
+	 * must not steal HPD from the usbpd path used by Type-C DP and DS2.
+	 */
 	if (of_find_property(of_node, "qcom,dp-hpd-gpio", NULL)) {
 		parser->no_aux_switch = true;
 		parser->lphw_hpd = of_find_property(of_node,

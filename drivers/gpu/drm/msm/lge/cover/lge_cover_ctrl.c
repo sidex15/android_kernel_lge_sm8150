@@ -132,7 +132,11 @@ int lge_cover_extcon_register(struct platform_device *pdev, struct lge_dp_displa
 }
 #endif
 
-#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+/* Also used by DS2-on-flash builds: the on-board iCE40 routes DP AUX and
+ * lanes between the Type-C connector (with orientation flip) and the DS1
+ * Keyssa path, selected by GPIO 67.
+ */
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY) || IS_ENABLED(CONFIG_LGE_DUAL_SCREEN)
 void dd_gpio_selection(int dd_hpd, int flip)
 {
 	int ret;
@@ -144,7 +148,7 @@ void dd_gpio_selection(int dd_hpd, int flip)
 	pr_info("[before enable] gpio 67 value %d\n", ret);
 
 #ifdef CONFIG_LATTICE_ICE40
-#if defined(CONFIG_LGE_COVER_DISPLAY)
+#if defined(CONFIG_LGE_COVER_DISPLAY) || defined(CONFIG_LGE_DUAL_SCREEN)
 	if (!ice40_get_lreset()) {
 		pr_info("Set lreset to high before control\n");
 		ice40_set_lreset(1);
@@ -168,6 +172,8 @@ void dd_gpio_selection(int dd_hpd, int flip)
 			ice40_master_reg_write(global_ice40, 0x00, (data&0xFD) | 0x01);
 		else
 			ice40_master_reg_write(global_ice40, 0x00, data|0x03);
+		ret = ice40_master_reg_read(global_ice40, 0x00, &data);
+		pr_info("ice40 master reg0 now 0x%x\n", data);
 		if (lge_get_dual_display_support()) {
 			pr_info("[DD] set gpio 35 for DS1\n");
 			gpio_set_value(35, 0);

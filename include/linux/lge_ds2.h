@@ -3,9 +3,11 @@
 
 #ifdef CONFIG_LGE_DUAL_SCREEN
 bool is_ds2_connected(void);
+bool is_ds2_dp_hpd_high(void);
 void set_hallic_status(bool enable);
 #else
 static inline bool is_ds2_connected(void) { return false; };
+static inline bool is_ds2_dp_hpd_high(void) { return false; };
 static inline bool void set_hallic_status(bool enable) { return false; };
 #endif
 
