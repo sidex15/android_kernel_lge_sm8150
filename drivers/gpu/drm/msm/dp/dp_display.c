@@ -417,7 +417,11 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	dp_display_update_hdcp_info(dp);
 
 	if (!dp_display_is_hdcp_enabled(dp))
+#ifdef HDCP_WAKE_LOCK
+		goto hdcp_cb_work_end;
+#else
 		return;
+#endif
 
 	dp->link->hdcp_status.hdcp_state = HDCP_STATE_AUTHENTICATING;
 
