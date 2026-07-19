@@ -4588,7 +4588,7 @@ static void touch_module_setup_driver(void)
  * old userspace "unbind + bind on DS open, unbind on close" sequence, with no
  * .ko and no init .rc trigger.
  */
-#define MODULE_DS1_SETTLE_MS	200
+#define MODULE_DS1_SETTLE_MS	50
 
 static struct delayed_work module_ds1_attach_work;
 static struct work_struct module_ds1_detach_work;
