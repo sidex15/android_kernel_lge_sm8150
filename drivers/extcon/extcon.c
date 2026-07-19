@@ -34,6 +34,32 @@
 
 #include "extcon.h"
 
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+/*
+ * Dual Display (DS1) touch attach/detach hook.
+ *
+ * The DS1 second-screen touch controller lives on an accessory i2c bus that is
+ * only powered once the Dual Display is attached and its DP link is trained.
+ * The EXTCON_DISP_DS1 state change is emitted here right after link training
+ * completes (~a few ms), which is exactly when the touch bus becomes usable, so
+ * the built-in S3706 touch driver registers a callback to (re)bind itself on
+ * attach and unbind on detach - replacing the old userspace insmod/rmmod.
+ */
+static void (*lge_ds1_touch_notify_cb)(int state);
+
+void lge_register_ds1_touch_notify(void (*cb)(int state))
+{
+	lge_ds1_touch_notify_cb = cb;
+}
+EXPORT_SYMBOL(lge_register_ds1_touch_notify);
+
+void lge_unregister_ds1_touch_notify(void)
+{
+	lge_ds1_touch_notify_cb = NULL;
+}
+EXPORT_SYMBOL(lge_unregister_ds1_touch_notify);
+#endif
+
 #ifdef CONFIG_LGE_PM_PRM
 #include "../soc/qcom/lge/power/main/lge_prm.h"
 #endif
@@ -615,6 +641,11 @@ out:
 		lge_prm_display_set_event(LGE_PRM_DISPLAY_EVENT_DD2_STATE, state);
 	}
 #endif
+#endif
+
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+	if (id == EXTCON_DISP_DS1 && lge_ds1_touch_notify_cb)
+		lge_ds1_touch_notify_cb(edev->state);
 #endif
 
 	return ret;
