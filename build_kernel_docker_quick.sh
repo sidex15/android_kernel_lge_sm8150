@@ -186,10 +186,6 @@ else
     cp -f ./out/arch/arm64/boot/Image "$release_file"
 fi
 
-if [ "$variant" = "flash" ]; then
-    ./out/scripts/sign-file sha512 \
-        out/certs/signing_key.pem \
-        out/certs/signing_key.x509 \
-        out/drivers/input/touchscreen/lge/module/touch_module_s3706.ko \
-        ./release/Dragon/touch_module_s3706.ko
-fi
+# The flash variant's DS1 (Dual Screen) touch driver (S3706) is now built into
+# the kernel (CONFIG_LGE_TOUCH_MODULE_S3706=y), so there is no longer a
+# touch_module_s3706.ko to sign and ship in /vendor/lib/modules.

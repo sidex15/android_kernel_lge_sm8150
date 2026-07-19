@@ -16,10 +16,20 @@
  */
 
 #include "touch_s3706.h"
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+#include <linux/device.h>
+#include <linux/workqueue.h>
+/* Provided by drivers/extcon/extcon.c (no public header). */
+extern void lge_register_ds1_touch_notify(void (*cb)(int state));
+extern void lge_unregister_ds1_touch_notify(void);
+#endif
 #define MODULE_DEVICE_COMPATIBLE_NAME	    "synaptics,s3706"
 #define LATTICE_LIMITATION
 
 u32 touch_debug_mask = BASE_INFO;
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+static struct device *module_ds1_dev;
+#endif
 #ifdef LATTICE_LIMITATION
 static int temp_angle;
 static int temp_major;
@@ -4414,6 +4424,11 @@ static int touch_bus_probe(struct i2c_client *i2c,
 
 	TOUCH_I("%s\n", __func__);
 
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+	/* Remember the i2c device so the DS1 attach hook can re-bind it later. */
+	module_ds1_dev = &i2c->dev;
+#endif
+
 	if (!i2c_check_functionality(i2c->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
 
@@ -4549,10 +4564,8 @@ static const struct dev_pm_ops module_pm_ops = {
 
 MODULE_DEVICE_TABLE(i2c, tp_id);
 
-static void touch_pen_async_init(void *data, async_cookie_t cookie)
+static void touch_module_setup_driver(void)
 {
-	int ret = 0;
-
 	touch_module_driver.probe = touch_bus_probe;
 	touch_module_driver.remove = touch_bus_remove;
 	touch_module_driver.id_table = tp_id;
@@ -4560,8 +4573,100 @@ static void touch_pen_async_init(void *data, async_cookie_t cookie)
 	touch_module_driver.driver.owner = THIS_MODULE;
 	touch_module_driver.driver.pm = &module_pm_ops;
 	touch_module_driver.driver.of_match_table = match_table;
+}
 
-	ret = i2c_add_driver(&touch_module_driver);
+#if IS_ENABLED(CONFIG_LGE_COVER_DISPLAY)
+/*
+ * DS1 (Dual Display) touch attach/detach handling.
+ *
+ * The S3706 touch controller sits on the DS accessory i2c bus which is only
+ * powered once the Dual Display is attached and DP link training completes.
+ * drivers/extcon/extcon.c invokes our callback on the EXTCON_DISP_DS1 state
+ * change, which lands right after link training - i.e. exactly when the touch
+ * bus is usable. On attach we (re)bind the i2c device so its probe runs against
+ * the live bus; on detach we unbind. This is the in-kernel equivalent of the
+ * old userspace "unbind + bind on DS open, unbind on close" sequence, with no
+ * .ko and no init .rc trigger.
+ */
+#define MODULE_DS1_SETTLE_MS	200
+
+static struct delayed_work module_ds1_attach_work;
+static struct work_struct module_ds1_detach_work;
+
+static void module_ds1_attach_work_func(struct work_struct *work)
+{
+	struct device *dev = module_ds1_dev;
+
+	if (!dev)
+		return;
+
+	/*
+	 * Drop any stale binding (e.g. the failed auto-probe at boot) then
+	 * re-run probe against the now-powered bus. device_release_driver() and
+	 * device_attach() take the device lock themselves.
+	 */
+	device_release_driver(dev);
+
+	if (device_attach(dev) == 1)
+		TOUCH_I("%s : DS1 attached, touch bound\n", __func__);
+	else
+		TOUCH_E("%s : DS1 attach - bind did not complete\n", __func__);
+}
+
+static void module_ds1_detach_work_func(struct work_struct *work)
+{
+	struct device *dev = module_ds1_dev;
+
+	if (!dev)
+		return;
+
+	device_release_driver(dev);
+	TOUCH_I("%s : DS1 detached, touch unbound\n", __func__);
+}
+
+static void module_ds1_touch_notify(int state)
+{
+	/* state != 0 : Dual Display attached; 0 : detached. */
+	if (state) {
+		mod_delayed_work(system_wq, &module_ds1_attach_work,
+				msecs_to_jiffies(MODULE_DS1_SETTLE_MS));
+	} else {
+		cancel_delayed_work(&module_ds1_attach_work);
+		schedule_work(&module_ds1_detach_work);
+	}
+}
+
+static void touch_pen_async_init(void *data, async_cookie_t cookie)
+{
+	INIT_DELAYED_WORK(&module_ds1_attach_work, module_ds1_attach_work_func);
+	INIT_WORK(&module_ds1_detach_work, module_ds1_detach_work_func);
+
+	touch_module_setup_driver();
+	i2c_add_driver(&touch_module_driver);
+
+	lge_register_ds1_touch_notify(module_ds1_touch_notify);
+}
+
+int touch_module_init(void)
+{
+	TOUCH_I("%s\n", __func__);
+	async_schedule(touch_pen_async_init, NULL);
+	return 0;
+}
+
+void touch_module_exit(void)
+{
+	TOUCH_I("%s\n", __func__);
+	lge_unregister_ds1_touch_notify();
+	cancel_delayed_work_sync(&module_ds1_attach_work);
+	cancel_work_sync(&module_ds1_detach_work);
+	i2c_del_driver(&touch_module_driver);
+}
+#else /* !CONFIG_LGE_COVER_DISPLAY */
+static void touch_pen_async_init(void *data, async_cookie_t cookie)
+{
+	touch_module_setup_driver();
+	i2c_add_driver(&touch_module_driver);
 }
 
 int touch_module_init(void)
@@ -4576,6 +4681,7 @@ void touch_module_exit(void)
 	TOUCH_I("%s\n", __func__);
 	i2c_del_driver(&touch_module_driver);
 }
+#endif /* CONFIG_LGE_COVER_DISPLAY */
 
 module_init(touch_module_init);
 module_exit(touch_module_exit);
