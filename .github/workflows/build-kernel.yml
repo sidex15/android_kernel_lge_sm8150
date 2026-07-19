@@ -169,10 +169,6 @@ jobs:
             fi
           fi
 
-          if [ "$variant" = "flash" ]; then
-            cp "release/Dragon/touch_module_s3706.ko" "n3x7g3n_anykernel3/touch_module_s3706.ko"
-          fi
-
       - name: Determine artifact paths
         id: artifacts
         run: |
