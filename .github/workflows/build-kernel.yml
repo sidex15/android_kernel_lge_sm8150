@@ -131,7 +131,7 @@ jobs:
           case "${{ inputs.lmk }}" in
             "Sony TNG LMK")
               echo "Using Sony TNG LMK implementation"
-              curl https://github.com/sidex15/android_kernel_lge_sm8150/commit/5cf1cda9776ffe756d74b96fe49084c8220398ef.patch | git am -3
+              curl https://github.com/sidex15/android_kernel_lge_sm8150/commit/5cf1cda9776ffe756d74b96fe49084c8220398ef.patch | patch -p1
               ;;
             "Legacy Android LMK")
               echo "Using Legacy Android LMK implementation"
