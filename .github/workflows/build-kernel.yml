@@ -18,6 +18,15 @@ on:
           - beta
           - flash
           - mh2lm
+      lmk:
+        description: 'LMK (Low Memory Killer) implementation'
+        required: false
+        type: choice
+        options:
+          - Sony TNG LMK
+          - Legacy Android LMK
+          - Simple LMK (SultanXDA)
+        default: Simple LMK (SultanXDA)
       ksu:
         description: 'KernelSU Next?'
         required: false
@@ -114,6 +123,29 @@ jobs:
 
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+
+      - name: Setup Low Memory Killer (LMK)
+        run: |
+          case "${{ inputs.lmk }}" in
+            "Sony TNG LMK")
+              echo "Using Sony TNG LMK implementation"
+              curl https://github.com/sidex15/android_kernel_lge_sm8150/commit/5cf1cda9776ffe756d74b96fe49084c8220398ef.patch | patch -p1
+              ;;
+            "Legacy Android LMK")
+              echo "Using Legacy Android LMK implementation"
+              git revert 8d8b8759d0fa38d21519614ce6869bec5b1f2f6e --no-edit
+              ;;
+            "Simple LMK (SultanXDA)")
+              echo "Using Simple LMK (SultanXDA) implementation"
+              # No command needed, as this is the default implementation
+              ;;
+            *)
+              echo "Invalid LMK option selected"
+              exit 1
+              ;;
+          esac
 
       - name: Download Neutron Clang
         run: |
