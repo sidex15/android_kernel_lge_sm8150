@@ -241,4 +241,4 @@ jobs:
           name: "${{ steps.artifacts.outputs.device_codename }}-n3x7g3n-${{ steps.artifacts.outputs.build_suffix }}-${{ steps.artifacts.outputs.ksu_flag }}"
           path: n3x7g3n_anykernel3/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 180
